@@ -1,36 +1,40 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 코끼리 (가칭)
 
-## Getting Started
+> 부모님한테 못 하는 말, 코끼리한테는 할 수 있어.
+> 아이가 친구 코끼리에게 털어놓고, 코끼리는 비밀을 지키면서 아이가 부모에게 직접 말할 수 있게 다리를 놓아준다. 위험한 일이 생겼을 때만 부모가 늦지 않게 알도록 돕는다.
 
-First, run the development server:
+VERY × NEXT 연합 해커톤 · 학부모 트랙 · **제출 11/1(일) 08:30**
+
+## 먼저 읽을 것 (순서대로)
+
+| 문서 | 내용 | 누가 꼭 |
+| --- | --- | --- |
+| [01 아이템 정의](docs/01_아이템_정의.md) | 문제·근거·심사 기준별 구체화·비밀 보장 3단계·데모 시나리오 | **전원** |
+| [02 데이터 근거](docs/02_데이터_근거.md) | 맘카페 9,282건 수집·분류 결과, 발표에 쓸 숫자 | 발표·기획 |
+| [03 MVP 스펙](docs/03_MVP_스펙.md) | 화면·흐름·데이터 구조·API·LLM 프롬프트 | **개발 전원** |
+| [04 협업 규칙](docs/04_협업_규칙.md) | 역할·폴더 담당·브랜치·커밋·시간표 | **전원** |
+| [05 결정 기록](docs/05_결정_기록.md) | 정해진 것 / **아직 안 정해진 것** | **전원** |
+
+> **얼라인 회의 안건 = [05 결정 기록](docs/05_결정_기록.md)의 "미정" 항목.** 회의 끝나면 그 자리에서 이 문서를 고친다.
+
+## 개발 시작
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone <저장소 주소>
+cd kokkiri
+npm install
+cp .env.example .env.local   # 키는 팀 채널에서 받기 (절대 커밋 금지)
+npm run dev                  # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- 스택: Next.js 15 (App Router) · TypeScript · Tailwind CSS · Vercel 배포
+- Claude Code 쓰는 사람은 [CLAUDE.md](CLAUDE.md)가 자동으로 읽힌다
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 제출물 체크 (08:30)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [ ] 배포 링크
+- [ ] GitHub 저장소 + 최종 커밋 링크
+- [ ] 한 줄 소개 + 핵심 시나리오
+- [ ] 데모 영상 60초
+- [ ] 발표 자료 10장 내외 (첫 장 팀명)
+- [ ] 테스트 계정 (직접 만든 로그인이면)

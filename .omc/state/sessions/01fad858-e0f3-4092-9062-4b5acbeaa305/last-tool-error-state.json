@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"pkill -f 'while pgrep -f \\\"npm install\\\"' ; pkill -f 'while pgrep -f \\\"next build\\\"'; cd ~/kokkiri && npm run build 2>&1 | tail -20\",\"timeout\":300000,\"description\":\"Kill stuck waiters and ...",
+  "error": "Exit code 144",
+  "timestamp": "2026-10-31T14:12:08.229Z",
+  "retry_count": 1
+}
