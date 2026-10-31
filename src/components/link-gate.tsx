@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { activeFamilyLink, familyLinkAvailable, fetchFamilyState, isDemoContext, saveFamilyLink } from "@/lib/family-link";
+import { inAppBrowser } from "@/lib/voice";
 
 type GateStatus = "checking" | "ready" | "linking" | "need-link" | "bad-link";
 
@@ -17,6 +18,11 @@ export function LinkGate({ role, children }: { role: "parent" | "kid"; children:
   useEffect(() => {
     const key = new URLSearchParams(window.location.search).get(role === "kid" ? "k" : "p");
     if (key && !isDemoContext()) {
+      // 인앱 브라우저는 주소에 열쇠를 남겨 둔다 (아이폰 'Safari로 열기'는 지금 주소를 그대로 넘기므로). 이미 저장한 열쇠면 바로 연다
+      if (activeFamilyLink()?.key === key) {
+        setStatus("ready");
+        return;
+      }
       setStatus("linking");
       fetchFamilyState(key)
         .then((body) => {
@@ -25,7 +31,8 @@ export function LinkGate({ role, children }: { role: "parent" | "kid"; children:
             return;
           }
           saveFamilyLink({ role, key, familyId: body.familyId, kidKey: body.kidKey }, body.state);
-          window.location.replace(window.location.pathname);
+          if (inAppBrowser()) window.location.reload();
+          else window.location.replace(window.location.pathname);
         })
         .catch(() => setStatus("bad-link"));
       return;
