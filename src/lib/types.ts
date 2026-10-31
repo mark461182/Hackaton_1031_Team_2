@@ -90,6 +90,8 @@ export type Question = {
   askedAt?: IsoTime;
   /** 아이가 답해서 답장 카드(또는 위험 알림)가 나간 때 */
   answeredAt?: IsoTime;
+  /** 물었는데 답 없이 넘어간 때 (4턴 지남·두 번 피함) → 대기 줄 맨 뒤로 가서 다음 대화에 다시 묻는다 */
+  deferredAt?: IsoTime;
 };
 
 /** 답장 카드: 부모 질문에 대한 아이 답 */
@@ -155,6 +157,8 @@ export type PendingQuestion = {
   askedAt?: IsoTime;
   /** 대기를 시작한 뒤 아이가 말한 횟수 — 서버가 몇 턴 안에 꼭 묻게 하는 데 쓴다 */
   kidTurnsWaiting: number;
+  /** 물은 뒤 아이가 말한 횟수 (이번 말은 빼고) — 답이 안 나오면 질문을 닫는 데 쓴다 */
+  kidTurnsSinceAsked?: number;
 };
 
 export type KidChatResponse = {
@@ -172,6 +176,8 @@ export type KidChatResponse = {
   askedQuestionId?: Id;
   /** 아이가 대기 질문에 답했으면 그 id → 화면은 Question.answeredAt을 저장 */
   answeredQuestionId?: Id;
+  /** 물었는데 답 없이 넘어가서 대기 줄 맨 뒤로 보낼 질문 */
+  skippedQuestionId?: string;
   /** 부모에게 보낼 답장 카드 (답이 위험이면 대신 alert만 옴) */
   replyCard?: Omit<Reply, "id" | "familyId" | "createdAt">;
   /** 부모에게 보낼 위험 알림 (가족이 당사자면 오지 않음) */

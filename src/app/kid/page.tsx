@@ -82,6 +82,7 @@ function KidChatScreen() {
   const activePointerId = useRef<number | null>(null);
   const actionGate = useRef(createActionGate());
   const speechRun = useRef(0);
+  const questionDone = useRef(false); // 이번 대화에서 부모 질문을 이미 끝냈는지
   const kk = useRef<KokkiriPlayer | null>(null);
   const lip = useRef<KokkiriLipSync | null>(null); // 입 그리기 (도하 09_lipsync). 안 되는 브라우저에선 스스로 꺼져 원래 말하기 영상
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -261,7 +262,8 @@ function KidChatScreen() {
 
     try {
       const history = await store.getMessages(family.id);
-      const pendingQuestion = await store.getPendingQuestion(family.id);
+      // 부모 질문은 대화 한 번(이 화면을 연 동안)에 하나만: 답했거나 닫힌 뒤에는 더 꺼내지 않는다
+      const pendingQuestion = questionDone.current ? undefined : await store.getPendingQuestion(family.id);
       const kidMessage: Message = {
         id: newId(),
         familyId: family.id,
@@ -300,8 +302,10 @@ function KidChatScreen() {
         ...records,
         askedQuestionId: result.askedQuestionId,
         answeredQuestionId: result.answeredQuestionId,
+        skippedQuestionId: result.skippedQuestionId,
         changedAt: createdAt,
       });
+      if (result.answeredQuestionId || result.skippedQuestionId) questionDone.current = true;
 
       if (result.endConversation) {
         const finishResult = await store.finishConversation(family.id, createdAt);
