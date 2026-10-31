@@ -808,3 +808,38 @@ test("맡긴 질문에 답했지만 전할 답이 없으면 내용 없이 '물�
   });
   assert.deepEqual((await store.getParentFeed(family.id)).map((item) => item.kind), ["alert", "quiet"]);
 });
+
+test("답 없이 닫힌 질문은 물은 기록을 지우고 대기 줄 맨 뒤로 간다", async () => {
+  const store = createMemoryStore();
+  const family = await store.getOrCreateDemoFamily(FAMILY_A_VISITOR);
+  const question = (id: string, createdAt: string): Question => ({
+    id,
+    familyId: family.id,
+    original: id,
+    rewritten: id,
+    createdAt,
+  });
+  await store.saveQuestion(question("q-first", "2026-11-01T00:00:00.000Z"));
+  await store.saveQuestion(question("q-second", "2026-11-01T00:01:00.000Z"));
+  await store.markQuestionAsked(family.id, "q-first", "2026-11-01T00:02:00.000Z");
+
+  const msg = (id: string, from: "kid" | "kokkiri"): Message => ({
+    id,
+    familyId: family.id,
+    from,
+    text: id,
+    createdAt: "2026-11-01T00:03:00.000Z",
+  });
+  await store.commitKidTurn({
+    kidMessage: msg("kid-1", "kid"),
+    kokkiriMessage: msg("kk-1", "kokkiri"),
+    skippedQuestionId: "q-first",
+    changedAt: "2026-11-01T00:03:00.000Z",
+  });
+
+  assert.equal((await store.getPendingQuestion(family.id))?.id, "q-second");
+  const skipped = (await store.getQuestions(family.id)).find((q) => q.id === "q-first");
+  assert.equal(skipped?.askedAt, undefined);
+  assert.equal(skipped?.answeredAt, undefined);
+  assert.equal(skipped?.deferredAt, "2026-11-01T00:03:00.000Z");
+});

@@ -25,6 +25,7 @@ export type KidTurnCommit = {
   kokkiriMessage: Message;
   askedQuestionId?: Id;
   answeredQuestionId?: Id;
+  skippedQuestionId?: Id;
   changedAt: IsoTime;
   reply?: Reply;
   alert?: Alert;
@@ -309,11 +310,11 @@ export function createMemoryStore(options: MemoryStoreOptions = {}): EllyStore {
     },
 
     async getPendingQuestion(familyId) {
-      const questions = sortOldestFirst(
-        [...state.questions.values()].filter(
-          (question) => question.familyId === familyId && question.answeredAt === undefined,
-        ),
-      );
+      // 미룬 질문은 미룬 때 기준으로 줄을 선다 (맨 뒤로)
+      const queuedAt = (question: Question) => question.deferredAt ?? question.createdAt;
+      const questions = [...state.questions.values()]
+        .filter((question) => question.familyId === familyId && question.answeredAt === undefined)
+        .sort((a, b) => queuedAt(a).localeCompare(queuedAt(b)));
       return questions[0];
     },
 
@@ -384,6 +385,14 @@ export function createMemoryStore(options: MemoryStoreOptions = {}): EllyStore {
       }
       if (answeredKey && answeredQuestion) {
         state.questions.set(answeredKey, { ...answeredQuestion, answeredAt: turn.changedAt });
+      }
+      const skippedKey = turn.skippedQuestionId ? recordKey(familyId, turn.skippedQuestionId) : undefined;
+      const skippedQuestion = skippedKey ? state.questions.get(skippedKey) : undefined;
+      if (skippedKey && skippedQuestion && !skippedQuestion.answeredAt) {
+        // 다음에 처음부터 다시 묻도록 물은 기록을 지우고 맨 뒤로
+        const deferred: Question = { ...skippedQuestion, deferredAt: turn.changedAt };
+        delete deferred.askedAt;
+        state.questions.set(skippedKey, deferred);
       }
       if (turn.reply) state.replies.set(recordKey(familyId, turn.reply.id), turn.reply);
       if (turn.alert) state.alerts.set(recordKey(familyId, turn.alert.id), turn.alert);

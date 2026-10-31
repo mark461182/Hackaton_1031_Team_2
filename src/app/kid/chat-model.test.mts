@@ -343,3 +343,19 @@ test("오늘 이미 받았으면 현재 코인을 유지하고 중복 지급을 
     },
   );
 });
+
+test("물은 질문은 물은 뒤 아이 말 수를, 미룬 질문은 미룬 때부터 센다", () => {
+  const at = (minute: number) => `2026-11-01T00:0${minute}:00.000Z`;
+  const kid = (id: string, minute: number): Message => ({ id, familyId: "f", from: "kid", text: id, createdAt: at(minute) });
+  const messages = [kid("a", 1), kid("b", 3), kid("c", 5)];
+  const base: Question = { id: "q", familyId: "f", original: "o", rewritten: "r", createdAt: at(0) };
+
+  assert.deepEqual(buildPendingQuestion({ ...base, askedAt: at(2) }, messages), {
+    id: "q",
+    rewritten: "r",
+    askedAt: at(2),
+    kidTurnsSinceAsked: 2,
+    kidTurnsWaiting: 3,
+  });
+  assert.equal(buildPendingQuestion({ ...base, deferredAt: at(4) }, messages)?.kidTurnsWaiting, 1);
+});

@@ -151,6 +151,7 @@ export function parseKidChatResponse(value: unknown): KidChatResponse {
     (value.mock !== undefined && typeof value.mock !== "boolean") ||
     !isOptionalString(value.askedQuestionId) ||
     !isOptionalString(value.answeredQuestionId) ||
+    !isOptionalString(value.skippedQuestionId) ||
     (value.riskType !== undefined && !isOneOf(value.riskType, RISK_TYPES)) ||
     (value.keepFromParent !== undefined && !isOneOf(value.keepFromParent, KEEP_REASONS))
   ) {
@@ -222,14 +223,14 @@ export function createActionGate() {
 
 export function buildPendingQuestion(question: Question | undefined, messages: Message[]): PendingQuestion | null {
   if (!question) return null;
-  const kidTurnsWaiting = messages.filter(
-    (message) => message.from === "kid" && message.createdAt > question.createdAt,
-  ).length;
+  const kidTurnsAfter = (time: string) =>
+    messages.filter((message) => message.from === "kid" && message.createdAt > time).length;
   return {
     id: question.id,
     rewritten: question.rewritten,
-    ...(question.askedAt ? { askedAt: question.askedAt } : {}),
-    kidTurnsWaiting,
+    ...(question.askedAt ? { askedAt: question.askedAt, kidTurnsSinceAsked: kidTurnsAfter(question.askedAt) } : {}),
+    // 뒤로 미룬 질문은 미룬 때부터 다시 센다
+    kidTurnsWaiting: kidTurnsAfter(question.deferredAt ?? question.createdAt),
   };
 }
 

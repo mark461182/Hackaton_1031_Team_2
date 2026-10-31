@@ -11,6 +11,7 @@ import {
   buildKidTurn,
   buildRewrite,
   extractJson,
+  missionShouldEnd,
   parseKidTurn,
 } from "./prompts";
 import type {
@@ -106,6 +107,15 @@ export async function kidChat(req: KidChatRequest): Promise<KidChatResponse> {
     };
   } else if (category === "share" && !dontTell && !askedQuestionId) {
     res.shareProposal = { summary: llm.mission?.summary || quoteOf(req.kidText) };
+  }
+
+  // 물었는데 답이 안 나오면 질문을 닫는다 (docs/08 3장: 4턴 / 피하기 2번). 안 닫으면 그 질문이 대기 줄을 계속 막는다
+  // 피한 횟수는 따로 저장하지 않아서 "물은 뒤 두 번째 말 이후에 피함"을 두 번 피한 것으로 본다
+  if (q?.askedAt && !answeredQuestionId && llm.mission) {
+    const turns = (q.kidTurnsSinceAsked ?? 0) + 1;
+    const declines = llm.mission.status === "declined" ? (turns >= 2 ? 2 : 1) : 0;
+    const mission = { question: q.rewritten, turns, declines, asked: true };
+    if (missionShouldEnd(mission, llm.mission.status)) res.skippedQuestionId = q.id;
   }
   return res;
 }
