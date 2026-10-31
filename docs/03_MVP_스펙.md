@@ -171,9 +171,9 @@ Report   { id, familyId, week, summary, nextQuestions }               // 주간 
 - LLM: **AWS Bedrock** (05, 11/1). 모델·키 이름은 건준이 `.env.example`에 적는다
 - ~~데이터만 다루는 API (share·photo·gift·feed·book/order·calendar)~~ → 아래 저장 함수로 옮김 (11/1)
 
-## 저장 함수 (초안) — 성준·재모 중 B. `src/lib/store.ts`
+## 저장 함수 (초안) — 성준·재모. `src/lib/store.ts`
 
-화면은 Supabase를 직접 부르지 않고 이 함수들만 부른다. API 결과를 저장하는 것도 화면이 이 함수로 한다. 함수 이름과 모양은 B가 정해 `types.ts`와 맞춘다.
+화면은 Supabase를 직접 부르지 않고 이 함수들만 부른다. API 결과를 저장하는 것도 화면이 이 함수로 한다. 함수 이름과 모양은 성준·재모가 정해 `types.ts`와 맞춘다.
 
 | 하는 일 | 쓰는 화면 |
 | --- | --- |
