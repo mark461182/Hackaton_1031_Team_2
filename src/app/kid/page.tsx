@@ -47,6 +47,8 @@ import {
   type PushToTalk,
 } from "@/lib/voice";
 
+/** 손을 뗀 뒤 더 듣는 시간 (말끝이 잘리지 않게, Elly는 그동안 생각하는 모습) */
+const STT_TAIL_MS = 1500;
 const GREETING = FIXED_LINES.find((line) => line.file === "greet");
 const SHARE_YES = FIXED_LINES.find((line) => line.file === "share-yes")?.text ?? "좋아, 고마워!";
 const SHARE_NO = FIXED_LINES.find((line) => line.file === "share-no")?.text ?? "알겠어. 말하고 싶을 때 말해 줘.";
@@ -394,7 +396,9 @@ function KidChatScreen() {
       if (event?.currentTarget.hasPointerCapture(event.pointerId)) {
         event.currentTarget.releasePointerCapture(event.pointerId);
       }
-      const alternatives = await ptt.stop();
+      // 손을 떼면 바로 '생각 중'으로 바꾸고, 뒤에서 조금 더 들어서 끝말을 놓치지 않는다
+      setScreenState("thinking");
+      const alternatives = await ptt.stop(STT_TAIL_MS);
       const intent = getKidVoiceSendIntent(
         pickTranscript(alternatives, choices, KID_CONTEXT_WORDS),
       );

@@ -39,8 +39,11 @@ export function isSttSupported(): boolean {
 export type PushToTalk = {
   /** 버튼을 누를 때 */
   start(): void;
-  /** 버튼에서 손을 뗄 때. 후보 목록(첫 번째가 엔진 1순위)을 돌려준다 */
-  stop(): Promise<SttAlternative[]>;
+  /**
+   * 버튼에서 손을 뗄 때. 후보 목록(첫 번째가 엔진 1순위)을 돌려준다
+   * tailMs: 손을 뗀 뒤에도 그만큼 더 듣는다 (아이들이 말끝보다 먼저 손을 떼서 끝말이 잘린다). 그 사이 인식이 먼저 끝나면 바로 돌려준다
+   */
+  stop(tailMs?: number): Promise<SttAlternative[]>;
 };
 
 /**
@@ -90,7 +93,8 @@ export function createPushToTalk(
       };
       rec.start();
     },
-    async stop() {
+    async stop(tailMs = 0) {
+      if (tailMs > 0) await Promise.race([finished, new Promise((resolve) => setTimeout(resolve, tailMs))]);
       rec?.stop();
       await finished;
       return combine(dedupeSegments(segments.filter(Boolean)));
