@@ -3,3 +3,4 @@ export * from "./stt";
 export * from "./tts";
 export * from "./correct";
 export * from "./voices";
+export * from "./fixed";
