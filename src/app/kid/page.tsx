@@ -1,8 +1,10 @@
-// 아이 화면 담당 폴더 — 스펙: docs/03_MVP_스펙.md
+// 아이 화면 — 코끼리와 음성 대화 (스펙: docs/03_MVP_스펙.md, 흐름: KidChat.tsx)
+import KidChat from "./KidChat";
+
 export default function KidPage() {
   return (
-    <main className="mx-auto flex min-h-screen max-w-md items-center justify-center px-4">
-      <p className="text-gray-500">코끼리 대화 화면 준비 중</p>
+    <main className="mx-auto max-w-md px-4 py-6">
+      <KidChat />
     </main>
   );
 }
