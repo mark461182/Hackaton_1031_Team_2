@@ -7,11 +7,10 @@ import type * as HomeModel from "./home-model";
 const require = createRequire(import.meta.url);
 const { HOME_ACTIONS, enterFreshDemo } = require("./home-model.ts") as typeof HomeModel;
 
-test("첫 화면은 부모·아이·예시 가족 체험을 정확한 주소로 연결한다", () => {
+test("첫 화면은 부모 시작·예시 가족 체험만 정확한 주소로 연결한다", () => {
   assert.deepEqual(
     HOME_ACTIONS.map(({ id, href }) => ({ id, href })),
     [
-      { id: "kid", href: "/kid" },
       { id: "parent", href: "/parent" },
       { id: "demo", href: "/demo" },
     ],
