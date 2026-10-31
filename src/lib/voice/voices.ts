@@ -1,0 +1,27 @@
+// 타입캐스트 아동 목소리 (GET /v2/voices?age=child 중 한국어 이름). "Hajun"은 방송 목소리와 이름이 같아 제외
+
+/** 코끼리 기본 목소리 = 하율 (팀 결정 11/1) */
+export const DEFAULT_KID_VOICE_ID = "tc_65fbe54e2668bc4ddbd8b2a6";
+
+export const TYPECAST_KID_VOICES = [
+  { id: DEFAULT_KID_VOICE_ID, name: "하율 (여) — 기본" },
+  { id: "tc_699d27b557c86e3f4249c051", name: "옥지 (여)" },
+  { id: "tc_699d27d2f197c861791ac91b", name: "부꾸 (여)" },
+  { id: "tc_699d27ef573c4c4d91aa411d", name: "어굴 (여)" },
+  { id: "tc_6699eb5749dfac016c29445c", name: "수아 (여)" },
+  { id: "tc_619d7f42c14fccfc4953e159", name: "베리 (여)" },
+  { id: "tc_60db35d96fdc060afd157d32", name: "하영 (여)" },
+  { id: "tc_609a8f4362c4bdb3363bbfad", name: "채아 (여)" },
+  { id: "tc_5de781b108fd6b000882c58f", name: "하은 (여)" },
+  { id: "tc_5ffda44bcba8f6d3d46fc41f", name: "채린 (여)" },
+  { id: "tc_6a98d65b0402016f616a7ac3", name: "준우 (남)" },
+  { id: "tc_69c1f8e4f8842d80fbe7fa4f", name: "우니 (남)" },
+  { id: "tc_6699eb3849dfac016c29444c", name: "시우 (남)" },
+  { id: "tc_660645fb8db3e2c06ff7070b", name: "태지 (남)" },
+  { id: "tc_63a3d9da4b235ddd6541a795", name: "민수 (남)" },
+  { id: "tc_624cccbcadcd568510764d65", name: "건우 (남)" },
+  { id: "tc_619d7eb59233f1f0771197ed", name: "모루 (남)" },
+  { id: "tc_61532cab9119555d352f5c69", name: "팡팡 (남)" },
+  { id: "tc_5ffda49bcba8f6d3d46fc447", name: "호빈 (남)" },
+  { id: "tc_5f8e95eae146f10007b85f45", name: "우주 (남)" },
+] as const;
