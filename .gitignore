@@ -40,3 +40,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# 로컬 Claude/OMC 상태
+.omc/
+.claude/settings.local.json
