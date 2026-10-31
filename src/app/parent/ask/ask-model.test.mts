@@ -5,7 +5,7 @@ import test from "node:test";
 import type * as AskModel from "./ask-model";
 
 const require = createRequire(import.meta.url);
-const { createQuestionFromAsk, parseParentAskResponse, saveQuestionIfNonePending } = require("./ask-model.ts") as typeof AskModel;
+const { MAX_PENDING_QUESTIONS, createQuestionFromAsk, parseParentAskResponse, pendingQueueLabel, saveQuestionIfRoom } = require("./ask-model.ts") as typeof AskModel;
 
 const response = {
   questions: [
@@ -45,33 +45,33 @@ test("첫 번째 다듬은 질문을 같은 가족의 대기 질문으로 만든
   });
 });
 
-test("화면을 연 뒤 다른 탭에서 질문을 맡겼으면 새 질문으로 덮어쓰지 않는다", async () => {
-  const existing = {
-    id: "question-existing",
+test("대기 질문이 한도보다 적으면 줄 뒤에 더하고, 꽉 차면 저장하지 않는다", async () => {
+  const make = (id: string) => ({
+    id,
     familyId: "family-1",
-    original: "먼저 쓴 질문",
-    rewritten: "오늘 어땠어?",
+    original: id,
+    rewritten: id,
     createdAt: "2026-11-01T00:00:00.000Z",
-  };
-  const proposal = {
-    id: "question-new",
-    familyId: "family-1",
-    original: "나중 질문",
-    rewritten: "친구랑 뭐 했어?",
-    createdAt: "2026-11-01T00:01:00.000Z",
-  };
-  let saved = false;
-
-  const result = await saveQuestionIfNonePending(
-    {
-      getPendingQuestion: async () => existing,
-      saveQuestion: async () => {
-        saved = true;
-      },
+  });
+  const saved: string[] = [];
+  const target = (pending: ReturnType<typeof make>[]) => ({
+    getPendingQuestions: async () => pending,
+    saveQuestion: async (question: { id: string }) => {
+      saved.push(question.id);
     },
-    proposal,
-  );
+  });
 
-  assert.deepEqual(result, { status: "already_pending", question: existing });
-  assert.equal(saved, false);
+  const added = await saveQuestionIfRoom(target([make("q1")]), make("q2"));
+  assert.equal(added.status, "saved");
+  assert.deepEqual(added.pending.map((q) => q.id), ["q1", "q2"]);
+
+  const full = Array.from({ length: MAX_PENDING_QUESTIONS }, (_, i) => make(`old-${i}`));
+  const refused = await saveQuestionIfRoom(target(full), make("q-new"));
+  assert.equal(refused.status, "full");
+  assert.deepEqual(saved, ["q2"]);
+});
+
+test("대기 줄 안내 문구", () => {
+  assert.equal(pendingQueueLabel(2), "대기 중 2개, 아이가 편할 때 하나씩 물어볼게요");
+  assert.equal(pendingQueueLabel(1), "아이가 편할 때 물어볼게요");
 });

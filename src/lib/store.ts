@@ -48,6 +48,9 @@ export type EllyStore = {
   saveQuestion(question: Question): Promise<void>;
   getQuestions(familyId: Id): Promise<Question[]>;
   getPendingQuestion(familyId: Id): Promise<Question | undefined>;
+  /** 답을 기다리는 질문 전부, Elly가 물어볼 순서대로 */
+  getPendingQuestions(familyId: Id): Promise<Question[]>;
+  cancelQuestion(familyId: Id, questionId: Id, cancelledAt: IsoTime): Promise<void>;
   markQuestionAsked(familyId: Id, questionId: Id, askedAt: IsoTime): Promise<void>;
   markQuestionAnswered(familyId: Id, questionId: Id, answeredAt: IsoTime): Promise<void>;
   saveReply(reply: Reply): Promise<void>;
@@ -211,6 +214,16 @@ const parsePersistedState = (raw: string | null): PersistedState | undefined => 
 
 export function createMemoryStore(options: MemoryStoreOptions = {}): EllyStore {
   const state = createState(options.initialState);
+  // 답을 기다리는 질문, 물어볼 순서대로. 미룬 질문은 미룬 때 기준으로 줄을 선다 (맨 뒤로)
+  const pendingQuestions = (familyId: Id) => {
+    const queuedAt = (question: Question) => question.deferredAt ?? question.createdAt;
+    return [...state.questions.values()]
+      .filter(
+        (question) =>
+          question.familyId === familyId && question.answeredAt === undefined && question.cancelledAt === undefined,
+      )
+      .sort((a, b) => queuedAt(a).localeCompare(queuedAt(b)));
+  };
   const listeners = new Set<() => void>();
 
   const emit = () => {
@@ -309,13 +322,20 @@ export function createMemoryStore(options: MemoryStoreOptions = {}): EllyStore {
       return sortOldestFirst([...state.questions.values()].filter((question) => question.familyId === familyId));
     },
 
+    async getPendingQuestions(familyId) {
+      return pendingQuestions(familyId);
+    },
+
     async getPendingQuestion(familyId) {
-      // 미룬 질문은 미룬 때 기준으로 줄을 선다 (맨 뒤로)
-      const queuedAt = (question: Question) => question.deferredAt ?? question.createdAt;
-      const questions = [...state.questions.values()]
-        .filter((question) => question.familyId === familyId && question.answeredAt === undefined)
-        .sort((a, b) => queuedAt(a).localeCompare(queuedAt(b)));
-      return questions[0];
+      return pendingQuestions(familyId)[0];
+    },
+
+    async cancelQuestion(familyId, questionId, cancelledAt) {
+      const key = recordKey(familyId, questionId);
+      const question = state.questions.get(key);
+      if (!question || question.answeredAt) return;
+      state.questions.set(key, { ...question, cancelledAt });
+      emit();
     },
 
     async markQuestionAsked(familyId, questionId, askedAt) {
