@@ -1,0 +1,30 @@
+// 기기·브라우저 판별 (음성 인식이 기기마다 다르게 동작해서 필요)
+
+const ua = () => (typeof navigator === "undefined" ? "" : navigator.userAgent);
+
+export function isMobile(): boolean {
+  return /Android|iPhone|iPad|iPod/i.test(ua());
+}
+
+/** 앱 안에서 링크를 연 인앱 브라우저 이름 (마이크가 막히는 경우가 많다). 아니면 null */
+export function inAppBrowser(): string | null {
+  const u = ua();
+  if (/KAKAOTALK/i.test(u)) return "카카오톡";
+  if (/NAVER\(inapp/i.test(u)) return "네이버";
+  if (/Instagram/i.test(u)) return "인스타그램";
+  if (/FBAN|FBAV/i.test(u)) return "페이스북";
+  if (/Line\//i.test(u)) return "라인";
+  if (/everytimeApp/i.test(u)) return "에브리타임";
+  return null;
+}
+
+/** 인앱 브라우저에서 기본 브라우저로 여는 주소. 카카오톡·안드로이드만 가능, 그 외는 null (직접 열기 안내) */
+export function externalOpenUrl(url: string): string | null {
+  const u = ua();
+  if (/KAKAOTALK/i.test(u)) return `kakaotalk://web/openExternal?url=${encodeURIComponent(url)}`;
+  if (/Android/i.test(u)) {
+    const noScheme = url.replace(/^https?:\/\//, "");
+    return `intent://${noScheme}#Intent;scheme=https;package=com.android.chrome;end`;
+  }
+  return null;
+}

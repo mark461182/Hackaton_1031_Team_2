@@ -1,4 +1,7 @@
 // 말 → 글자 (브라우저 Web Speech API). 녹음 파일은 만들지도 저장하지도 않는다.
+// 안드로이드 크롬은 구글, 아이폰 사파리는 애플 받아쓰기 엔진이 쓰인다.
+
+import { isMobile } from "./env";
 // 크롬은 소리를 구글 서버에서 처리하고, 파이어폭스는 지원하지 않는다.
 
 export type SttAlternative = { transcript: string; confidence: number };
@@ -40,8 +43,16 @@ export type PushToTalk = {
   stop(): Promise<SttAlternative[]>;
 };
 
-/** 꾹 누르고 말하기. onInterim으로 말하는 도중 글자를 받는다 */
-export function createPushToTalk(onInterim?: (text: string) => void, maxAlternatives = 5): PushToTalk {
+/**
+ * 꾹 누르고 말하기. onInterim으로 말하는 도중 글자를 받는다.
+ * 휴대폰은 연속 듣기를 끈다: 안드로이드 크롬은 연속 듣기에서 같은 말이 겹쳐 받아써지는 버그가 있고,
+ * 아이폰은 연속 듣기가 불안정하다. 대신 말을 멈추면 그 문장에서 끝난다.
+ */
+export function createPushToTalk(
+  onInterim?: (text: string) => void,
+  maxAlternatives = 5,
+  continuous = !isMobile(),
+): PushToTalk {
   const Ctor = getCtor();
   if (!Ctor) throw new Error("이 브라우저는 음성 인식을 지원하지 않아요");
 
@@ -57,7 +68,7 @@ export function createPushToTalk(onInterim?: (text: string) => void, maxAlternat
       rec.lang = "ko-KR";
       rec.interimResults = true;
       rec.maxAlternatives = maxAlternatives;
-      rec.continuous = true; // 버튼을 누르고 있는 동안 계속 듣는다
+      rec.continuous = continuous; // PC: 버튼을 누르고 있는 동안 계속 듣는다
       finished = new Promise((resolve) => {
         rec!.onend = () => resolve();
         rec!.onerror = () => resolve();
@@ -82,9 +93,26 @@ export function createPushToTalk(onInterim?: (text: string) => void, maxAlternat
     async stop() {
       rec?.stop();
       await finished;
-      return combine(segments.filter(Boolean));
+      return combine(dedupeSegments(segments.filter(Boolean)));
     },
   };
+}
+
+/**
+ * 겹친 조각 걸러 내기 (안드로이드 연속 듣기 버그 안전장치):
+ * 같은 조각이 또 오거나, 다음 조각이 앞 조각을 포함해서 다시 오면 앞 것을 버린다.
+ * 예: ["짝꿍이", "짝꿍이 때려"] → ["짝꿍이 때려"], ["짝꿍이 때려", "짝꿍이 때려"] → ["짝꿍이 때려"]
+ */
+export function dedupeSegments(segments: SttAlternative[][]): SttAlternative[][] {
+  const norm = (s: SttAlternative[]) => (s[0]?.transcript ?? "").replace(/\s+/g, "");
+  const out: SttAlternative[][] = [];
+  for (const seg of segments) {
+    const prev = out[out.length - 1];
+    if (prev && norm(seg).startsWith(norm(prev))) out[out.length - 1] = seg;
+    else if (prev && norm(prev).endsWith(norm(seg))) continue;
+    else out.push(seg);
+  }
+  return out;
 }
 
 /** 조각별 후보를 문장 후보로 합친다: 1순위끼리 이은 것 + 조각 하나씩만 바꾼 것 */
