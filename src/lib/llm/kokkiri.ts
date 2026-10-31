@@ -127,7 +127,7 @@ export async function kidDone(req: KidDoneRequest): Promise<KidDoneResponse> {
   // "말하지 마"·[싫어]·위험 내용은 LLM에 보내기 전에 뺀다 (일기에 절대 안 들어가게)
   const lines = req.messages.filter((m) => m.from === "kid" && !m.keepFromParent && m.category !== "risk").map((m) => m.text);
   if (!lines.length) return mockKidDone(req);
-  const raw = await chatComplete(DIARY_SYSTEM, buildDiary(lines, req.kidName), { temperature: 0.5, maxTokens: 300 });
+  const raw = await chatComplete(DIARY_SYSTEM, buildDiary(lines, req.kidName), { temperature: 0.5, maxTokens: 1000 });
   if (raw === null) return mockKidDone(req);
   try {
     const diary = ((extractJson(raw) as { diary?: unknown }).diary ?? []) as unknown[];

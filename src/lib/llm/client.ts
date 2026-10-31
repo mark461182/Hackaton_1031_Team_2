@@ -25,7 +25,7 @@ export async function chatComplete(system: string, user: string, opts: ChatOptio
           { role: "system", content: system },
           { role: "user", content: user },
         ],
-        max_tokens: opts.maxTokens ?? 500,
+        max_tokens: opts.maxTokens ?? 1500, // 생각 과정(reasoning)도 토큰을 써서 넉넉히
         temperature: opts.temperature ?? 0.6,
       }),
     });
