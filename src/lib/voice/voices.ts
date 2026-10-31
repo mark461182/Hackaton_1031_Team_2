@@ -1,5 +1,8 @@
 // 타입캐스트 아동 목소리 (GET /v2/voices?age=child 중 한국어 이름). "Hajun"은 방송 목소리와 이름이 같아 제외
 
+/** /api/tts 한 번에 보내는 최대 글자 수 (크레딧 도둑 방지). 더 긴 답은 speak()가 문장 단위로 나눠 보낸다 */
+export const TTS_MAX_CHARS = 300;
+
 /** 코끼리 기본 목소리 = 하율 (팀 결정 11/1) */
 export const DEFAULT_KID_VOICE_ID = "tc_65fbe54e2668bc4ddbd8b2a6";
 

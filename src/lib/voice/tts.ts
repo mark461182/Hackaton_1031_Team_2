@@ -1,12 +1,18 @@
 // 글자 → 말. 기본은 클라우드(타입캐스트 아동 목소리, /api/tts), 실패하면 브라우저 speechSynthesis로 대체한다.
+// 고정 대사(fixed.ts)는 미리 만든 mp3를 틀어 크레딧을 쓰지 않는다.
+
+import { FILLER_FILES, FIXED_LINES, fixedLineUrl } from "./fixed";
+import { TTS_MAX_CHARS } from "./voices";
 
 export type TtsOptions = {
   voiceURI?: string; // 브라우저 목소리
   rate?: number;
   pitch?: number;
   /** 클라우드 목소리. false면 브라우저 목소리만 */
-  cloud?: false | { voiceId?: string; previousText?: string };
+  cloud?: false | CloudOptions;
 };
+
+export type CloudOptions = { voiceId?: string; previousText?: string };
 
 export const DEFAULT_TTS: Required<Pick<TtsOptions, "rate" | "pitch">> = { rate: 0.95, pitch: 1.1 };
 
@@ -98,6 +104,7 @@ export function unlockTts(): void {
 }
 
 export function stopSpeaking(): void {
+  generation++;
   try {
     current?.stop();
   } catch {}
@@ -105,49 +112,88 @@ export function stopSpeaking(): void {
   if (isTtsSupported()) speechSynthesis.cancel();
 }
 
-/** 클라우드 목소리로 읽기. 실패하면 false (호출한 쪽이 브라우저 목소리로 대체) */
-async function speakCloud(text: string, cloud: { voiceId?: string; previousText?: string }): Promise<boolean> {
-  const ac = ctx();
-  if (!ac) return false;
-  const key = `${cloud.voiceId ?? ""}|${text}`;
-  try {
-    let buf = audioCache.get(key);
-    if (!buf) {
-      const res = await fetch("/api/tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, voiceId: cloud.voiceId, previousText: cloud.previousText }),
-      });
-      if (!res.ok) return false;
-      buf = await ac.decodeAudioData(await res.arrayBuffer());
-      audioCache.set(key, buf);
+/** 한 번에 보낼 수 있는 길이로 문장을 묶는다. 문장 중간은 자르지 않고, 정말 긴 문장만 띄어쓰기에서 자른다 */
+export function packChunks(text: string, max = TTS_MAX_CHARS): string[] {
+  const pieces: string[] = [];
+  for (const s of splitSentences(text, max)) {
+    let rest = s;
+    while (rest.length > max) {
+      const cut = rest.lastIndexOf(" ", max);
+      const at = cut > 0 ? cut : max;
+      pieces.push(rest.slice(0, at).trim());
+      rest = rest.slice(at).trim();
     }
-    await ac.resume();
-    const src = ac.createBufferSource();
-    src.buffer = buf;
-    src.connect(ac.destination);
-    current = src;
-    await new Promise<void>((resolve) => {
-      src.onended = () => resolve();
-      src.start();
-    });
-    if (current === src) current = null;
-    return true;
+    if (rest) pieces.push(rest);
+  }
+  const chunks: string[] = [];
+  for (const p of pieces) {
+    const last = chunks[chunks.length - 1];
+    if (last !== undefined && last.length + 1 + p.length <= max) chunks[chunks.length - 1] = `${last} ${p}`;
+    else chunks.push(p);
+  }
+  return chunks;
+}
+
+let generation = 0; // stopSpeaking()이나 새 speak()가 오면 진행 중인 읽기를 멈추는 표시
+
+/** 고정 대사는 public/voice의 mp3(크레딧 0), 나머지는 /api/tts. 실패하면 null */
+async function loadBuffer(text: string, cloud: CloudOptions): Promise<AudioBuffer | null> {
+  const ac = ctx();
+  if (!ac) return null;
+  const fixed = fixedLineUrl(text);
+  const key = fixed ?? `${cloud.voiceId ?? ""}|${text}`;
+  const hit = audioCache.get(key);
+  if (hit) return hit;
+  try {
+    const res = fixed
+      ? await fetch(fixed)
+      : await fetch("/api/tts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text, voiceId: cloud.voiceId, previousText: cloud.previousText }),
+        });
+    if (!res.ok) return null;
+    const buf = await ac.decodeAudioData(await res.arrayBuffer());
+    audioCache.set(key, buf);
+    return buf;
   } catch {
-    return false;
+    return null;
   }
 }
 
-/** 정리 → 클라우드 목소리로 읽기, 안 되면 브라우저 목소리로 문장 단위 읽기. 다 읽으면 끝난다 */
-export async function speak(text: string, opts: TtsOptions = {}): Promise<void> {
-  stopSpeaking();
-  const clean = normalizeForSpeech(text);
-  if (!clean) return;
-  if (opts.cloud !== false && (await speakCloud(clean, opts.cloud ?? {}))) return;
+async function playBuffer(buf: AudioBuffer): Promise<void> {
+  const ac = ctx()!;
+  await ac.resume();
+  const src = ac.createBufferSource();
+  src.buffer = buf;
+  src.connect(ac.destination);
+  current = src;
+  await new Promise<void>((resolve) => {
+    src.onended = () => resolve();
+    src.start();
+  });
+  if (current === src) current = null;
+}
+
+/** 클라우드 목소리로 덩어리마다 읽는다 (다음 덩어리는 읽는 동안 미리 받아 둠). 읽은 덩어리 수를 돌려준다 */
+async function speakCloud(chunks: string[], cloud: CloudOptions, gen: number): Promise<number> {
+  let next = loadBuffer(chunks[0], cloud);
+  for (let i = 0; i < chunks.length; i++) {
+    const buf = await next;
+    if (!buf || gen !== generation) return i;
+    if (i + 1 < chunks.length) next = loadBuffer(chunks[i + 1], { ...cloud, previousText: chunks[i] });
+    await playBuffer(buf);
+    if (gen !== generation) return i + 1;
+  }
+  return chunks.length;
+}
+
+async function speakBrowser(sentences: string[], opts: TtsOptions, gen: number): Promise<void> {
   if (!isTtsSupported()) return;
   const voices = await getKoreanVoices();
   const voice = voices.find((v) => v.voiceURI === opts.voiceURI) ?? pickBestVoice(voices);
-  for (const sentence of splitSentences(clean)) {
+  for (const sentence of sentences) {
+    if (gen !== generation) return;
     await new Promise<void>((resolve) => {
       const u = new SpeechSynthesisUtterance(sentence);
       u.lang = "ko-KR";
@@ -159,4 +205,23 @@ export async function speak(text: string, opts: TtsOptions = {}): Promise<void> 
       speechSynthesis.speak(u);
     });
   }
+}
+
+/** 정리 → 아동 목소리로 끝까지 읽기. 아동 목소리가 안 되는 부분부터는 브라우저 목소리로 이어 읽는다 */
+export async function speak(text: string, opts: TtsOptions = {}): Promise<void> {
+  stopSpeaking();
+  const gen = generation;
+  const clean = normalizeForSpeech(text);
+  if (!clean) return;
+  const chunks = packChunks(clean);
+  const done = opts.cloud === false ? 0 : await speakCloud(chunks, opts.cloud ?? {}, gen);
+  if (done >= chunks.length || gen !== generation) return;
+  await speakBrowser(chunks.slice(done).flatMap((c) => splitSentences(c)), opts, gen);
+}
+
+/** LLM 답을 기다리는 동안 바로 트는 짧은 맞장구 (미리 만든 파일, 크레딧 0) */
+export async function speakFiller(): Promise<void> {
+  const file = FILLER_FILES[Math.floor(Math.random() * FILLER_FILES.length)];
+  const line = FIXED_LINES.find((l) => l.file === file);
+  if (line) await speak(line.text);
 }
