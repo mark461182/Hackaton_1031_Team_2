@@ -23,6 +23,7 @@ import {
   selectDiaryMessages,
 } from "./diary-model";
 import { KokkiriStage } from "@/components/kokkiri/KokkiriStage";
+import { KokkiriLipSync } from "@/components/kokkiri/kokkiri-lipsync";
 import type { KokkiriPlayer } from "@/components/kokkiri/kokkiri-player";
 import { Button } from "@/components/ui/Button";
 import { TopBar } from "@/components/ui/TopBar";
@@ -33,6 +34,7 @@ import {
   KID_CONTEXT_WORDS,
   createPushToTalk,
   externalOpenUrl,
+  getSpeechLevel,
   inAppBrowser,
   isSttSupported,
   pickTranscript,
@@ -71,6 +73,7 @@ export default function KidPage() {
   const actionGate = useRef(createActionGate());
   const speechRun = useRef(0);
   const kk = useRef<KokkiriPlayer | null>(null);
+  const lip = useRef<KokkiriLipSync | null>(null); // 입 그리기 (도하 09_lipsync). 안 되는 브라우저에선 스스로 꺼져 원래 말하기 영상
   const panelRef = useRef<HTMLDivElement | null>(null);
 
   const busy = screenState === "thinking";
@@ -108,6 +111,8 @@ export default function KidPage() {
       active = false;
       unsubscribe();
       stopSpeaking();
+      lip.current?.destroy();
+      lip.current = null;
     };
   }, []);
 
@@ -145,10 +150,11 @@ export default function KidPage() {
     try {
       await Promise.race([
         speak(text, {
-          onChunkStart: (seconds) => kk.current?.speak(seconds),
-          onBrowserStart: () => kk.current?.speakStart(),
-          onBrowserEnd: () => kk.current?.speakEnd(),
-        }),
+          // 립싱크가 있으면 입을 소리 크기에 맞춰 그리고(kk.speak는 쓰지 않음), 없으면 말하기 영상
+          onChunkStart: (seconds) => (lip.current ? lip.current.start() : kk.current?.speak(seconds)),
+          onBrowserStart: () => (lip.current ? lip.current.start({ level: false }) : kk.current?.speakStart()),
+          onBrowserEnd: () => (lip.current ? lip.current.end() : kk.current?.speakEnd()),
+        }).finally(() => lip.current?.end()),
         new Promise<void>((resolve) => {
           timer = setTimeout(() => {
             stopSpeaking();
@@ -408,6 +414,8 @@ export default function KidPage() {
       <KokkiriStage
         onReady={(player) => {
           kk.current = player;
+          lip.current?.destroy();
+          lip.current = new KokkiriLipSync(player, { base: "/kokkiri/", dataSet: "real", getLevel: getSpeechLevel });
         }}
         className="mx-auto h-dvh w-full max-w-md"
         style={{ "--kk-ground": `${panelHeight + 4}px`, "--kk-size": "76%" } as React.CSSProperties}
