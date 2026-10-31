@@ -84,7 +84,8 @@ function KidChatScreen() {
   const activePointerId = useRef<number | null>(null);
   const actionGate = useRef(createActionGate());
   const speechRun = useRef(0);
-  const questionDone = useRef(false); // 이번 대화에서 부모 질문을 이미 끝냈는지
+  const questionDone = useRef(false);
+  const ttsUnlocked = useRef(false); // 이번 대화에서 부모 질문을 이미 끝냈는지
   const kk = useRef<KokkiriPlayer | null>(null);
   const lip = useRef<KokkiriLipSync | null>(null); // 입 그리기 (도하 09_lipsync). 안 되는 브라우저에선 스스로 꺼져 원래 말하기 영상
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -185,6 +186,7 @@ function KidChatScreen() {
 
   async function startConversation() {
     if (!family || !GREETING || !actionGate.current.tryEnter()) return;
+    ttsUnlocked.current = true;
     unlockTts();
     kk.current?.unlock();
     setError("");
@@ -368,7 +370,11 @@ function KidChatScreen() {
 
   function startTalk(event: ReactPointerEvent<HTMLButtonElement>) {
     if (busy || !sttSupported || pushToTalk.current) return;
-    unlockTts();
+    // 소리 풀기(무음 음성 재생)는 처음 한 번만: 누를 때마다 하면 녹음 시작과 겹쳐서 앞말이 잘리거나 인식이 끊긴다
+    if (!ttsUnlocked.current) {
+      ttsUnlocked.current = true;
+      unlockTts();
+    }
     kk.current?.unlock();
     interruptSpeech();
     setError("");
