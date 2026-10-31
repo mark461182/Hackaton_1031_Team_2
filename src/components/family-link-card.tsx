@@ -37,7 +37,34 @@ export function FamilyLinkCard({ kidName }: { kidName: string }) {
     void familyLinkAvailable().then(setReady);
   }, []);
 
-  if (!ready || link?.role === "kid") return null;
+  if (!ready) return null;
+
+  // 아이 링크를 연 폰(브라우저)에서 부모 화면을 열면 카드가 사라져서 고장처럼 보였다 → 이유와 되돌리는 방법을 알려 준다
+  if (link?.role === "kid") {
+    return (
+      <Card tone="sage" className="mt-5 p-5" data-ui="P-link-kid-device">
+        <h2 className="font-friendly text-[17px] text-sage-title">이 폰은 아이용으로 연결돼 있어요</h2>
+        <p className="mt-2 text-[14px] leading-6 text-ink-sage-body">
+          이 브라우저에서 아이 링크를 열어서, 아이 링크 만들기가 보이지 않아요. 부모 링크가 있으면 그 주소로 다시 열어 주세요.
+          없으면 아래 버튼으로 이 폰의 아이 연결을 끊고 부모로 다시 시작할 수 있어요.
+        </p>
+        <Button
+          size="sm"
+          className="mt-4 w-full px-4 text-[15px] hover:bg-sage-deep-hover"
+          onClick={() => {
+            clearFamilyLink();
+            window.location.reload();
+          }}
+          data-ui="P-link-reconnect-parent"
+        >
+          부모로 다시 연결하기
+        </Button>
+        <p className="mt-3 text-[12px] leading-5 text-ink-sage-body">
+          아이 연결을 끊어도 아이 폰과 가족 기록은 그대로예요. 아이를 테스트할 때는 시크릿 창으로 열면 안 꼬여요.
+        </p>
+      </Card>
+    );
+  }
 
   async function create() {
     setBusy(true);
