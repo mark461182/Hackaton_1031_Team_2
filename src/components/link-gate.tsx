@@ -4,13 +4,12 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { activeFamilyLink, familyLinkAvailable, fetchFamilyState, isDemoContext, saveFamilyLink } from "@/lib/family-link";
-import { inAppBrowser } from "@/lib/voice";
 
 type GateStatus = "checking" | "ready" | "linking" | "need-link" | "bad-link";
 
 /**
- * 링크로 들어오기: /kid?k=열쇠, /parent?p=열쇠 를 이 기기에 저장하고 주소에서 열쇠를 지운 뒤 다시 연다
- * 아이 화면은 링크가 없으면 열지 않는다 (데모는 예외). 아이에게 부모와 연결된다는 말은 하지 않는다
+ * 링크로 들어오기: /kid?k=열쇠, /parent?p=열쇠 를 이 기기에 저장하고 다시 연다 (주소의 열쇠는 그대로 둔다)
+ * 아이 화면은 링크가 없으면 열지 않는다 (데모는 예외). 아이에게 부모와 연결된다는 말이나 부모가 보냈다는 티는 내지 않는다
  */
 export function LinkGate({ role, children }: { role: "parent" | "kid"; children: React.ReactNode }) {
   const [status, setStatus] = useState<GateStatus>("checking");
@@ -18,7 +17,7 @@ export function LinkGate({ role, children }: { role: "parent" | "kid"; children:
   useEffect(() => {
     const key = new URLSearchParams(window.location.search).get(role === "kid" ? "k" : "p");
     if (key && !isDemoContext()) {
-      // 인앱 브라우저는 주소에 열쇠를 남겨 둔다 (아이폰 'Safari로 열기'는 지금 주소를 그대로 넘기므로). 이미 저장한 열쇠면 바로 연다
+      // 주소의 열쇠는 지우지 않는다: 새로고침·즐겨찾기·다른 브라우저로 열어도 같은 링크가 바로 Elly로 이어지게. 이미 저장한 열쇠면 바로 연다
       if (activeFamilyLink()?.key === key) {
         setStatus("ready");
         return;
@@ -31,8 +30,7 @@ export function LinkGate({ role, children }: { role: "parent" | "kid"; children:
             return;
           }
           saveFamilyLink({ role, key, familyId: body.familyId, kidKey: body.kidKey }, body.state);
-          if (inAppBrowser()) window.location.reload();
-          else window.location.replace(window.location.pathname);
+          window.location.reload();
         })
         .catch(() => setStatus("bad-link"));
       return;
@@ -49,10 +47,10 @@ export function LinkGate({ role, children }: { role: "parent" | "kid"; children:
 
   const message =
     status === "need-link"
-      ? "Elly를 만나려면 엄마 아빠한테 받은 링크로 들어와 줘."
+      ? "Elly를 만나려면 처음 열었던 Elly 링크로 다시 들어와 줘."
       : status === "bad-link"
         ? role === "kid"
-          ? "이 링크로는 들어갈 수 없어. 엄마 아빠한테 새 링크를 받아 줘."
+          ? "이 링크로는 Elly를 만날 수 없어. 새 링크로 들어와 줘."
           : "이 부모 링크는 맞지 않아요. 아이 링크를 만든 기기에서 다시 확인해 주세요."
         : "잠깐만, 여는 중이야.";
 
