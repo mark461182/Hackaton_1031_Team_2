@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   DEFAULT_TTS,
   KID_CONTEXT_WORDS,
+  TYPECAST_KID_VOICES,
   cer,
   createPushToTalk,
   getKoreanVoices,
@@ -64,27 +65,32 @@ export default function VoiceLab() {
   const [rate, setRate] = useState(DEFAULT_TTS.rate);
   const [pitch, setPitch] = useState(DEFAULT_TTS.pitch);
   const [line, setLine] = useState(SAMPLE_LINES[1]);
+  const [cloudOn, setCloudOn] = useState(true);
+  const [kidVoice, setKidVoice] = useState<string>(TYPECAST_KID_VOICES[0].id);
+  const [speaking, setSpeaking] = useState(false);
 
   useEffect(() => {
     setSttOk(isSttSupported());
     setTtsOk(isTtsSupported());
     getKoreanVoices().then((vs) => {
       setVoices(vs);
-      let saved: { voiceURI?: string; rate?: number; pitch?: number } = {};
+      let saved: { voiceURI?: string; rate?: number; pitch?: number; kidVoice?: string; cloudOn?: boolean } = {};
       try {
         saved = JSON.parse(localStorage.getItem(STORE_KEY) || "{}");
       } catch {}
       setVoiceURI(saved.voiceURI ?? pickBestVoice(vs)?.voiceURI ?? "");
       if (saved.rate) setRate(saved.rate);
       if (saved.pitch) setPitch(saved.pitch);
+      if (saved.kidVoice) setKidVoice(saved.kidVoice);
+      if (typeof saved.cloudOn === "boolean") setCloudOn(saved.cloudOn);
     });
   }, []);
 
   useEffect(() => {
     try {
-      localStorage.setItem(STORE_KEY, JSON.stringify({ voiceURI, rate, pitch }));
+      localStorage.setItem(STORE_KEY, JSON.stringify({ voiceURI, rate, pitch, kidVoice, cloudOn }));
     } catch {}
-  }, [voiceURI, rate, pitch]);
+  }, [voiceURI, rate, pitch, kidVoice, cloudOn]);
 
   const choiceList = choices.split(",").map((c) => c.trim()).filter(Boolean);
 
@@ -195,6 +201,23 @@ export default function VoiceLab() {
 
       <section className="space-y-3 rounded-2xl border p-4">
         <h2 className="text-lg font-semibold">2. 코끼리 목소리 (TTS)</h2>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={cloudOn} onChange={(e) => setCloudOn(e.target.checked)} />
+          아동 목소리 쓰기 (타입캐스트, 실패하면 아래 브라우저 목소리로 자동 대체)
+        </label>
+        {cloudOn && (
+          <label className="block text-sm">
+            아동 목소리
+            <select className="mt-1 w-full rounded border p-2" value={kidVoice} onChange={(e) => setKidVoice(e.target.value)}>
+              {TYPECAST_KID_VOICES.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        <p className="text-xs text-gray-500">아래 브라우저 목소리 설정은 아동 목소리를 끄거나 실패했을 때 쓰여요</p>
         <label className="block text-sm">
           목소리 (이 기기에 있는 한국어 목소리 {voices.length}개)
           <select className="mt-1 w-full rounded border p-2" value={voiceURI} onChange={(e) => setVoiceURI(e.target.value)}>
@@ -232,20 +255,23 @@ export default function VoiceLab() {
         <div className="flex gap-2">
           <button
             disabled={!ttsOk}
-            onClick={() => {
+            onClick={async () => {
               unlockTts();
-              speak(line, { voiceURI, rate, pitch });
+              setSpeaking(true);
+              await speak(line, { voiceURI, rate, pitch, cloud: cloudOn ? { voiceId: kidVoice } : false });
+              setSpeaking(false);
             }}
             className="flex-1 rounded-2xl bg-violet-200 py-3 font-semibold disabled:opacity-40"
           >
-            코끼리 목소리로 듣기
+            {speaking ? "말하는 중…" : "코끼리 목소리로 듣기"}
           </button>
           <button onClick={stopSpeaking} className="rounded-2xl border px-4">
             멈춤
           </button>
         </div>
         <p className="text-xs text-gray-500">
-          고른 설정 (아이 화면에 그대로 넘기기): {JSON.stringify({ voiceURI, rate, pitch })}
+          고른 설정 (아이 화면에 그대로 넘기기):{" "}
+          {JSON.stringify({ voiceURI, rate, pitch, cloud: cloudOn ? { voiceId: kidVoice } : false })}
         </p>
       </section>
     </main>
