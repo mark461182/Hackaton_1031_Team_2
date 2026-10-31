@@ -10,6 +10,8 @@ import type {
   Share,
 } from "./types";
 import { toLocalIsoDate } from "./date.ts";
+import { LINK_STORE_STORAGE_KEY, activeFamilyLink, createRemoteStoreSync } from "./family-link.ts";
+import { linkVisitorId } from "./family-state.ts";
 
 export type ParentFeedItem =
   | { kind: "reply"; createdAt: IsoTime; data: Reply }
@@ -559,11 +561,14 @@ export function createBrowserStore(storage?: StorageLike, sync?: StoreSync): Ell
   const getMemoryStore = () => {
     if (memoryStore) return memoryStore;
 
+    // 부모·아이 링크로 이어진 기기면 서버와 맞추고, 아니면(데모 포함) 이 브라우저 안에만 둔다
+    const link = storage || sync ? null : activeFamilyLink();
+    const storageKey = link ? LINK_STORE_STORAGE_KEY : STORE_STORAGE_KEY;
     const target = storage ?? getDefaultLocalStorage();
-    const activeSync = sync ?? createDefaultStoreSync();
+    const activeSync = sync ?? (link ? createRemoteStoreSync(link) : createDefaultStoreSync());
     let initialState: PersistedState | undefined;
     try {
-      initialState = parsePersistedState(target?.getItem(STORE_STORAGE_KEY) ?? null);
+      initialState = parsePersistedState(target?.getItem(storageKey) ?? null);
     } catch {
       initialState = undefined;
     }
@@ -574,7 +579,7 @@ export function createBrowserStore(storage?: StorageLike, sync?: StoreSync): Ell
         onChange(changedState) {
           const raw = JSON.stringify(changedState);
           try {
-            target?.setItem(STORE_STORAGE_KEY, raw);
+            target?.setItem(storageKey, raw);
           } catch {
             // 브라우저 저장이 막혀도 현재 탭의 메모리 저장은 계속 사용한다.
           }
@@ -589,7 +594,7 @@ export function createBrowserStore(storage?: StorageLike, sync?: StoreSync): Ell
       if (!syncedState) return;
       memoryStore = createActiveStore(syncedState);
       try {
-        target?.setItem(STORE_STORAGE_KEY, raw);
+        target?.setItem(storageKey, raw);
       } catch {
         // 동기화된 상태는 현재 탭의 메모리에서 계속 사용한다.
       }
@@ -617,6 +622,9 @@ export function createBrowserStore(storage?: StorageLike, sync?: StoreSync): Ell
 let memoryVisitorId: string | undefined;
 
 export function getVisitorId(storage?: StorageLike, legacyStorage?: StorageLike): string {
+  // 링크로 이어진 기기들은 같은 가족을 보도록 같은 방문자 이름을 쓴다
+  const link = storage ? null : activeFamilyLink();
+  if (link) return linkVisitorId(link.familyId);
   const target = storage ?? getDefaultLocalStorage();
   try {
     const saved = target?.getItem(VISITOR_STORAGE_KEY);

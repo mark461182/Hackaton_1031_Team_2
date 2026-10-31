@@ -8,6 +8,8 @@ import {
   ParentFeedError,
   ParentFeedLoading,
 } from "../../components/parent-feed";
+import { FamilyLinkCard } from "../../components/family-link-card";
+import { LinkGate } from "../../components/link-gate";
 import { getVisitorId, store } from "../../lib/store";
 import { loadParentFeedData, type ParentFeedData } from "./feed-model";
 
@@ -17,6 +19,14 @@ type ParentPageState =
   | { status: "error" };
 
 export default function ParentPage() {
+  return (
+    <LinkGate role="parent">
+      <ParentHome />
+    </LinkGate>
+  );
+}
+
+function ParentHome() {
   const [state, setState] = useState<ParentPageState>({ status: "loading" });
   const requestIdRef = useRef(0);
 
@@ -50,6 +60,7 @@ export default function ParentPage() {
             entries={state.data.entries}
             familyName={state.data.family.name}
             kidName={state.data.family.kidName}
+            headerExtra={<FamilyLinkCard kidName={state.data.family.kidName} />}
           />
         ) : null}
         <ParentBottomNav />

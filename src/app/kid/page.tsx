@@ -25,6 +25,7 @@ import {
 import { KokkiriStage } from "@/components/kokkiri/KokkiriStage";
 import { KokkiriLipSync } from "@/components/kokkiri/kokkiri-lipsync";
 import type { KokkiriPlayer } from "@/components/kokkiri/kokkiri-player";
+import { LinkGate } from "@/components/link-gate";
 import { Button } from "@/components/ui/Button";
 import { TopBar } from "@/components/ui/TopBar";
 import { getVisitorId, store } from "@/lib/store";
@@ -53,6 +54,14 @@ const newId = () => globalThis.crypto.randomUUID();
 const now = () => new Date().toISOString();
 
 export default function KidPage() {
+  return (
+    <LinkGate role="kid">
+      <KidChatScreen />
+    </LinkGate>
+  );
+}
+
+function KidChatScreen() {
   const [family, setFamily] = useState<Family | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [choices, setChoices] = useState<string[]>([]);

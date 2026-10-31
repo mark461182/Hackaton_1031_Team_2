@@ -8,6 +8,8 @@ type ParentFeedProps = {
   familyName: string;
   kidName: string;
   entries: ParentFeedEntry[];
+  /** 머리 아래에 얹는 것 (아이 링크 카드) */
+  headerExtra?: React.ReactNode;
 };
 
 type FeedCardProps = {
@@ -115,7 +117,7 @@ function FeedCard({ entry, kidName }: FeedCardProps) {
   );
 }
 
-export function ParentFeed({ familyName, kidName, entries }: ParentFeedProps) {
+export function ParentFeed({ familyName, kidName, entries, headerExtra }: ParentFeedProps) {
   return (
     <>
       <header className="px-5 pb-6 pt-8">
@@ -141,6 +143,7 @@ export function ParentFeed({ familyName, kidName, entries }: ParentFeedProps) {
             코인 충전하기
           </Button>
         </div>
+        {headerExtra}
       </header>
 
       <section aria-labelledby="parent-feed-title" className="px-5 pb-8">
