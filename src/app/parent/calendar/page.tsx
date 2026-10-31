@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { ParentBottomNav } from "../../../components/parent-feed";
 import { createParentCalendarEntries } from "../../../data/parent-calendar";
+import { createParentWeeklyReport } from "../../../data/parent-report";
 import { getVisitorId, store } from "../../../lib/store";
 import type { Entry, Family, IsoDate } from "../../../lib/types";
 
@@ -16,6 +17,7 @@ import {
   toIsoDate,
   toMonthKey,
 } from "./calendar-model";
+import { createParentReportPreview, getWeekRange } from "../report/report-model";
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -97,6 +99,12 @@ export default function ParentCalendarPage() {
   const selectedChats = selectedEntries.filter((entry) => entry.type === "chat");
   const selectedPhotoCount = selectedEntries.filter((entry) => entry.type === "photo").length;
   const today = toIsoDate(anchorDate);
+  const weekRange = useMemo(() => getWeekRange(anchorDate), [anchorDate]);
+  const reportPreview = useMemo(() => {
+    if (!family) return null;
+    const report = createParentWeeklyReport(family.id, family.kidName, weekRange.start);
+    return createParentReportPreview(report, weekRange.end);
+  }, [family, weekRange.end, weekRange.start]);
 
   function moveMonth(amount: number) {
     const nextMonth = shiftMonth(month, amount);
@@ -150,6 +158,24 @@ export default function ParentCalendarPage() {
 
           {status === "ready" ? (
             <>
+              {reportPreview ? (
+                <Link
+                  aria-label="이번 주 리포트 전체 보기"
+                  className="group mb-6 block rounded-[20px] bg-[#E8EEE5] px-5 py-5 outline-none transition-colors hover:bg-[#DFE9DC] focus-visible:ring-4 focus-visible:ring-[#AFC6AF]"
+                  href={reportPreview.href}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-[13px] tabular-nums text-[#5E655C]">{reportPreview.period}</p>
+                      <h2 className="font-friendly mt-1 text-[19px] text-[#35523C]">이번 주 한눈에</h2>
+                    </div>
+                    <span aria-hidden="true" className="pt-1 text-[20px] text-[#4F6F59] transition-transform group-hover:translate-x-0.5">→</span>
+                  </div>
+                  <p className="mt-4 line-clamp-3 text-[15px] leading-6 text-[#4F5A4D]">{reportPreview.summary}</p>
+                  <span className="font-friendly mt-4 block text-[14px] text-[#35523C]">주간 리포트 보기</span>
+                </Link>
+              ) : null}
+
               <section aria-labelledby="calendar-month-title">
                 <div className="flex items-center justify-between">
                   <button
