@@ -43,7 +43,8 @@ export function externalOpenUrl(url: string): string | null {
   if (/KAKAOTALK/i.test(u)) return `kakaotalk://web/openExternal?url=${encodeURIComponent(url)}`;
   if (/Android/i.test(u)) {
     const noScheme = url.replace(/^https?:\/\//, "");
-    return `intent://${noScheme}#Intent;scheme=https;package=com.android.chrome;end`;
+    // 크롬이 없는 폰이면 같은 주소를 지금 브라우저로 다시 연다
+    return `intent://${noScheme}#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${encodeURIComponent(url)};end`;
   }
   return null;
 }
