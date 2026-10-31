@@ -39,6 +39,7 @@ import {
   getSpeechLevel,
   inAppBrowser,
   nonChromeBrowser,
+  resumeAudio,
   isSttSupported,
   pickTranscript,
   speak,
@@ -374,6 +375,7 @@ function KidChatScreen() {
 
   function startTalk(event: ReactPointerEvent<HTMLButtonElement>) {
     if (busy || !sttSupported || pushToTalk.current) return;
+    resumeAudio();
     // 소리 풀기(무음 음성 재생)는 처음 한 번만: 누를 때마다 하면 녹음 시작과 겹쳐서 앞말이 잘리거나 인식이 끊긴다
     if (!ttsUnlocked.current) {
       ttsUnlocked.current = true;
@@ -399,6 +401,7 @@ function KidChatScreen() {
     if (event && activePointerId.current !== null && event.pointerId !== activePointerId.current) return;
     const ptt = pushToTalk.current;
     if (!ptt) return;
+    resumeAudio(); // 손을 뗀 순간(사용자 동작 안)에 깨워야 아이폰에서 뒤이은 답이 들린다
     pushToTalk.current = null;
     activePointerId.current = null;
     let sent = false;
