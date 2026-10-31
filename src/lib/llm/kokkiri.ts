@@ -2,7 +2,7 @@
 // LLM이 없거나 실패하면 mock.ts 가짜 응답으로 대체 → 데모 중에도 멈추지 않는다
 
 import { chatComplete } from "./client";
-import { ASK_AFTER_KID_TURNS, classify, mockKidChat, mockKidDone, mockParentAsk } from "./mock";
+import { ASK_AFTER_KID_TURNS, classify, familyOnlyListener, mockKidChat, mockKidDone, mockParentAsk } from "./mock";
 import {
   DIARY_SYSTEM,
   KID_SYSTEM,
@@ -54,8 +54,10 @@ export async function kidChat(req: KidChatRequest): Promise<KidChatResponse> {
   const category = rule.category === "risk" ? "risk" : llm.category;
   const riskType: RiskType | undefined =
     category === "risk" ? (rule.riskType ?? (RISK_TYPES.includes(llm.riskType as RiskType) ? (llm.riskType as RiskType) : "other")) : undefined;
-  // 가족이 당사자: 둘 중 하나라도 가족이라 보면 가족 (부모 알림을 만들지 않는 쪽)
-  const llmInvolved = INVOLVED.includes(llm.involved as Involved) ? (llm.involved as Involved) : "none";
+  // 가족이 당사자: 모델 판단을 믿되, "엄마한테 말하지 마"처럼 가족이 듣는 사람으로만 나오면 덮어쓴다
+  // (분류 견고성 실험: 이 오판으로 친구 폭력 알림이 사라졌음. 반대로 너무 엄격하면 "아빠가떼려"를 놓침)
+  let llmInvolved = INVOLVED.includes(llm.involved as Involved) ? (llm.involved as Involved) : "none";
+  if (llmInvolved === "family" && familyOnlyListener(req.kidText)) llmInvolved = "other";
   const involved: Involved = rule.involved === "family" || llmInvolved === "family" ? "family" : llmInvolved !== "none" ? llmInvolved : rule.involved;
   const dontTell = llm.dontTell || DONT_TELL.test(req.kidText);
 
