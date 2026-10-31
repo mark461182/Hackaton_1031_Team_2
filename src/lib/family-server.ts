@@ -11,8 +11,9 @@ type FamilyRow = { id: string; parentKey: string; kidKey: string; state: FamilyS
 /** 128비트 무작위 열쇠 (링크에 들어가는 비밀 값) */
 const newKey = () => randomBytes(16).toString("base64url");
 
-const supabaseUrl = () => (process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").replace(/\/+$/, "");
-const supabaseKey = () => process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "";
+const supabaseUrl = () => (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/+$/, "");
+// 빈 값(KEY=)도 없는 것으로 본다
+const supabaseKey = () => process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "";
 
 /** Vercel에서 Supabase 설정이 없으면 쓰지 않는다 (서버 메모리는 요청마다 다른 서버라 기록이 사라진다) */
 export const familyStorage = (): "supabase" | "memory" | "unavailable" =>
