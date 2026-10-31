@@ -1,6 +1,7 @@
 "use client";
 
-// 아이 ↔ 코끼리 대화 한 바퀴: 꾹 누르고 말하기 → 받아쓴 글자 확인 → /api/kid/chat → 하율 목소리 + 선택지
+// 아이 ↔ 코끼리 대화 한 바퀴: 꾹 누르고 말하기 → (받아쓴 글자는 보여 주지 않고 바로) /api/kid/chat → 하율 목소리 + 선택지
+// 받아쓰기가 조금 틀려도 LLM이 문맥으로 알아듣는다 (docs/10 견고성 실험), 틀린 글자를 아이에게 보이면 오히려 헷갈림
 // 글자 입력은 항상 대체 수단. 저장은 store.ts(B)가 생기면 onTurn에서 한다 (API는 저장하지 않음, docs/09 1장)
 
 import { useEffect, useRef, useState } from "react";
@@ -36,8 +37,6 @@ export default function KidChat({ familyId = "demo", kidName, pendingQuestion = 
   // 일기에서 위험·"말하지 마" 내용을 빼려면 아이 말마다 분류를 같이 넘겨야 한다
   const kidMeta = useRef<KidDoneRequest["messages"]>([]);
   const [choices, setChoices] = useState<string[]>([]);
-  const [heard, setHeard] = useState(""); // 받아쓴 글자 (확인 전)
-  const [live, setLive] = useState(""); // 말하는 도중 글자
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
   const [ended, setEnded] = useState(false);
@@ -67,7 +66,6 @@ export default function KidChat({ familyId = "demo", kidName, pendingQuestion = 
     if (!kidText || busy) return;
     setBusy(true);
     setError("");
-    setHeard("");
     setTyped("");
     setChoices([]);
     stopSpeaking();
@@ -109,9 +107,8 @@ export default function KidChat({ familyId = "demo", kidName, pendingQuestion = 
   function talkStart() {
     if (busy) return;
     stopSpeaking();
-    setHeard("");
-    setLive("");
-    ptt.current = createPushToTalk(setLive);
+    setError("");
+    ptt.current = createPushToTalk();
     ptt.current.start();
     setState("listening");
   }
@@ -120,10 +117,9 @@ export default function KidChat({ familyId = "demo", kidName, pendingQuestion = 
     if (!ptt.current) return;
     const alts = await ptt.current.stop();
     ptt.current = null;
-    setLive("");
     setState("idle");
     const text = pickTranscript(alts, choices);
-    if (text) setHeard(text);
+    if (text) await send(text);
     else setError("잘 못 들었어. 다시 말해 줄래?");
   }
 
@@ -174,20 +170,7 @@ export default function KidChat({ familyId = "demo", kidName, pendingQuestion = 
 
       {error && <p className="text-center text-sm text-amber-700">{error}</p>}
 
-      {heard ? (
-        <div className="rounded-2xl border p-4 text-center">
-          <p className="mb-3 text-lg">&ldquo;{heard}&rdquo;</p>
-          <div className="flex justify-center gap-2">
-            <button onClick={() => send(heard)} className="rounded-full bg-pink-300 px-6 py-3 font-semibold text-white">
-              맞아
-            </button>
-            <button onClick={() => setHeard("")} className="rounded-full border px-6 py-3">
-              다시 말하기
-            </button>
-          </div>
-        </div>
-      ) : (
-        !ended && (
+      {!ended && (
           <>
             {choices.length > 0 && (
               <div className="flex flex-wrap justify-center gap-2">
@@ -208,7 +191,7 @@ export default function KidChat({ familyId = "demo", kidName, pendingQuestion = 
                   state === "listening" ? "bg-pink-500" : "bg-pink-300"
                 }`}
               >
-                {state === "listening" ? live || "듣고 있어…" : "꾹 누르고 말하기"}
+                {state === "listening" ? "듣고 있어… 다 말하면 손 떼기" : "꾹 누르고 말하기"}
               </button>
             )}
             <form
@@ -229,7 +212,6 @@ export default function KidChat({ familyId = "demo", kidName, pendingQuestion = 
               </button>
             </form>
           </>
-        )
       )}
 
       {!diary && history.length > 2 && (
