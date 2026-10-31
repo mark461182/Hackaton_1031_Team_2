@@ -27,7 +27,11 @@ const RISK: [RiskType, RegExp][] = [
   ["neglect", /밥을?\s?못\s?먹|밥\s?안\s?줘|집에\s?아무도\s?없|혼자\s?있어야/],
 ];
 
-const FAMILY = /아빠|엄마|할머니|할아버지|삼촌|이모|고모|새아빠|새엄마|우리\s?(형|누나|언니|오빠)|집에서\s?(형|누나|언니|오빠)/;
+// 가족은 "그 일을 한 사람"일 때만: "아빠가", "엄마가", "우리 형이". "엄마한테 말하지 마"의 엄마는 듣는 사람이라 아님
+// 받아쓰기가 뭉개진 형태(아바·어마)와 띄어쓰기 없는 문장("아빠가떼려")도 잡는다 (분류 견고성 실험)
+const FAMILY_WORD = "새아빠|새엄마|아빠|엄마|아바|어마|할머니|할아버지|삼촌|이모|고모|형|누나|언니|오빠";
+const FAMILY_ACTOR = new RegExp(`(^|\\s|우리\\s?)(${FAMILY_WORD})(가|이|께서)|우리\\s?(${FAMILY_WORD})(?!한테|한태|헌테|에게|에개|께|보고|더러|랑|들)`);
+const FAMILY_LISTENER = new RegExp(`(${FAMILY_WORD})(한테|한태|헌테|에게|에개|께|보고|더러)`);
 const TEACHER = /선생님|선생|쌤|원장/;
 const STRANGER = /모르는\s?(아저씨|아줌마|사람|어른)/;
 const FRIEND = /친구|짝꿍|짝궁|작꿍|반\s?애들|애들|형들|누나들|언니들|오빠들/;
@@ -41,11 +45,19 @@ export function detectRisk(text: string): RiskType | undefined {
   return undefined;
 }
 
+/** 가족이 그 일을 한 사람으로 나오는지 ("아빠가 때려" O, "엄마한테 말하지 마" X) */
+export function hasFamilyActor(text: string): boolean {
+  return FAMILY_ACTOR.test(text);
+}
+
+/** 가족이 듣는 사람으로만 나오는지 ("엄마한테 말하지 마") — 이때는 가족을 당사자로 보지 않는다 */
+export function familyOnlyListener(text: string): boolean {
+  return FAMILY_LISTENER.test(text) && !hasFamilyActor(text);
+}
+
 export function detectInvolved(text: string): Involved {
   if (has(text, STRANGER)) return "stranger";
-  // "엄마한테 말하지 마"처럼 가족이 듣는 사람일 뿐인 말은 당사자로 보지 않는다
-  const withoutListener = text.replace(/(엄마|아빠)(한테|에게|께)\s?(말하|얘기하|이르)/g, "");
-  if (has(withoutListener, FAMILY)) return "family";
+  if (hasFamilyActor(text)) return "family";
   if (has(text, TEACHER)) return "teacher";
   if (has(text, FRIEND)) return "friend";
   return "none";
