@@ -92,6 +92,8 @@ export type Question = {
   answeredAt?: IsoTime;
   /** 물었는데 답 없이 넘어간 때 (4턴 지남·두 번 피함) → 대기 줄 맨 뒤로 가서 다음 대화에 다시 묻는다 */
   deferredAt?: IsoTime;
+  /** 부모가 지운 때. 기록은 남기고 대기 줄에서만 뺀다 (기기 사이 동기화는 지운 것을 옮기지 못해서) */
+  cancelledAt?: IsoTime;
 };
 
 /** 답장 카드: 부모 질문에 대한 아이 답 */
