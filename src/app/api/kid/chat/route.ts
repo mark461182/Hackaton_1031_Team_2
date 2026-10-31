@@ -1,7 +1,7 @@
 // 아이 메시지 → 코끼리 답·분류·부모에게 갈 것 (docs/03 API). 저장하지 않는다: 화면이 응답을 store.ts로 저장
-// 지금은 가짜 응답(mock: true). Bedrock이 붙으면 이 자리에서 LLM을 부르고 응답 모양은 그대로 둔다
+// LLM(래블업) 설정이 있으면 진짜, 없거나 실패하면 가짜 응답(mock: true). 응답 모양은 같다
 import type { NextRequest } from "next/server";
-import { mockKidChat } from "@/lib/llm/mock";
+import { kidChat } from "@/lib/llm/kokkiri";
 import type { KidChatRequest } from "@/lib/types";
 
 export async function POST(req: NextRequest) {
@@ -17,5 +17,5 @@ export async function POST(req: NextRequest) {
     history: Array.isArray(body.history) ? body.history.slice(-20) : [],
     pendingQuestion: body.pendingQuestion ?? null,
   };
-  return Response.json(mockKidChat(request));
+  return Response.json(await kidChat(request));
 }
