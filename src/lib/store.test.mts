@@ -546,6 +546,28 @@ test("아이 메시지가 3개보다 적으면 대화를 마쳐도 코인을 주
   assert.equal((await activeStore.getOrCreateDemoFamily(FAMILY_A_VISITOR)).coins, 0);
 });
 
+test("실제 대화 2번 뒤 끝내기를 반복해도 종료 제어 메시지는 코인 기준에 포함하지 않는다", async () => {
+  const activeStore = createMemoryStore();
+  const family = await activeStore.getOrCreateDemoFamily(FAMILY_A_VISITOR);
+  await saveKidTurns(activeStore, family.id, "2026-11-01", 2);
+  for (const [index, createdAt] of [
+    "2026-11-01T00:03:00.000Z",
+    "2026-11-01T00:04:00.000Z",
+  ].entries()) {
+    await activeStore.saveMessage({
+      id: `finish-control-${index}`,
+      familyId: family.id,
+      from: "kid",
+      text: "끝",
+      createdAt,
+    });
+  }
+
+  const result = await activeStore.finishConversation(family.id, "2026-11-01T00:05:00.000Z");
+
+  assert.deepEqual(result, { status: "too_short", coins: 0, awardedCoins: 0 });
+});
+
 test("충분히 대화하면 10코인을 주고 같은 날 반복 종료는 다시 지급하지 않는다", async () => {
   const activeStore = createMemoryStore();
   const family = await activeStore.getOrCreateDemoFamily(FAMILY_A_VISITOR);

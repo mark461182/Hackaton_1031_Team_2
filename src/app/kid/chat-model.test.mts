@@ -16,6 +16,7 @@ const {
   getKidStagePresentation,
   getKidVoiceControlPresentation,
   getKidVoiceSendIntent,
+  getKidVoiceViewPresentation,
   parseKidChatResponse,
 } = require("./chat-model.ts") as typeof ChatModel;
 
@@ -71,6 +72,18 @@ test("음성 인식 결과는 확인 단계 없이 즉시 전송 값이 되고 �
     confirmed: true,
   });
   assert.equal(getKidVoiceSendIntent("   "), undefined);
+});
+
+test("듣는 중 받아쓴 글자는 아이 화면에 노출하지 않는다", () => {
+  assert.deepEqual(
+    getKidVoiceViewPresentation("listening", true, "잘못 받아쓴 문장"),
+    {
+      control: {
+        label: "듣고 있어요 · 손을 떼면 바로 보내요",
+        disabled: false,
+      },
+    },
+  );
 });
 
 test("전송 실패 뒤에는 작성 중인 말을 보존하고 성공 뒤에만 입력을 비운다", () => {

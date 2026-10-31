@@ -10,8 +10,8 @@ import {
   getFinishConversationNotice,
   getKidComposerAfterSend,
   getKidStagePresentation,
-  getKidVoiceControlPresentation,
   getKidVoiceSendIntent,
+  getKidVoiceViewPresentation,
   parseKidChatResponse,
   type FinishConversationNotice,
   type KidScreenState,
@@ -47,7 +47,6 @@ export default function KidPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [choices, setChoices] = useState<string[]>([]);
   const [draft, setDraft] = useState("");
-  const [interim, setInterim] = useState("");
   const [screenState, setScreenState] = useState<KidScreenState>("loading");
   const [sttSupported, setSttSupported] = useState(false);
   const [error, setError] = useState("");
@@ -165,7 +164,6 @@ export default function KidPage() {
       const savedMessages = selectDiaryMessages(
         await store.getMessages(family.id),
         finishedAt,
-        conversationId,
       );
       const diaryResponse = await fetch("/api/kid/done", {
         method: "POST",
@@ -262,11 +260,10 @@ export default function KidPage() {
       }
 
       const nextComposer = getKidComposerAfterSend(
-        { draft, heardText: "", interim, choices },
+        { draft, heardText: "", interim: "", choices },
         { type: "succeeded", choices: result.choices },
       );
       setDraft(nextComposer.draft);
-      setInterim(nextComposer.interim);
       setChoices(nextComposer.choices);
       setPendingShareId(records.share?.id ?? null);
       replyToSpeak = result.reply;
@@ -274,11 +271,10 @@ export default function KidPage() {
       stopSpeaking();
       setMessages(await store.getMessages(family.id));
       const retainedComposer = getKidComposerAfterSend(
-        { draft, heardText: "", interim, choices },
+        { draft, heardText: "", interim: "", choices },
         { type: "failed" },
       );
       setDraft(retainedComposer.draft || clean);
-      setInterim(retainedComposer.interim);
       setChoices(retainedComposer.choices);
       setError("잠시 연결이 안 됐어요. 작성한 말을 그대로 두었어요. 다시 보내 주세요.");
       setScreenState("ready");
@@ -311,11 +307,10 @@ export default function KidPage() {
     unlockTts();
     interruptSpeech();
     setError("");
-    setInterim("");
     try {
       event.currentTarget.setPointerCapture(event.pointerId);
       activePointerId.current = event.pointerId;
-      const ptt = createPushToTalk(setInterim);
+      const ptt = createPushToTalk();
       pushToTalk.current = ptt;
       ptt.start();
       setScreenState("listening");
@@ -349,7 +344,6 @@ export default function KidPage() {
     } catch {
       setError("음성을 글자로 바꾸지 못했어요. 다시 말하거나 글자로 입력해 주세요.");
     } finally {
-      setInterim("");
       if (!sent) setScreenState("ready");
     }
   }
@@ -360,7 +354,8 @@ export default function KidPage() {
   }
 
   const stage = getKidStagePresentation(screenState, started);
-  const voiceControl = getKidVoiceControlPresentation(screenState, sttSupported);
+  const voiceView = getKidVoiceViewPresentation(screenState, sttSupported, "");
+  const voiceControl = voiceView.control;
   const recentMessages = messages.slice(-2);
 
   return (
@@ -472,13 +467,6 @@ export default function KidPage() {
                       </button>
                     </div>
                   ) : null}
-                </div>
-              ) : null}
-
-              {interim && !conversationFinished ? (
-                <div className="mb-2 rounded-2xl bg-[#DCE8D8] px-4 py-3 text-[15px] leading-6">
-                  <span className="block text-[13px] text-[#383D37]">지금 들리는 말</span>
-                  {interim}
                 </div>
               ) : null}
 

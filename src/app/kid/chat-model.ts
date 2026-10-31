@@ -35,6 +35,9 @@ export type KidSendOutcome =
   | { type: "failed" }
   | { type: "succeeded"; choices: string[] };
 export type KidVoiceSendIntent = { text: string; confirmed: true };
+export type KidVoiceViewPresentation = {
+  control: { label: string; disabled: boolean };
+};
 
 export function getFinishConversationNotice(
   result: FinishConversationResult,
@@ -96,6 +99,15 @@ export function getKidVoiceControlPresentation(
 export function getKidVoiceSendIntent(transcript: string): KidVoiceSendIntent | undefined {
   const text = transcript.trim();
   return text ? { text, confirmed: true } : undefined;
+}
+
+export function getKidVoiceViewPresentation(
+  state: KidScreenState,
+  sttSupported: boolean,
+  interimTranscript: string,
+): KidVoiceViewPresentation {
+  void interimTranscript;
+  return { control: getKidVoiceControlPresentation(state, sttSupported) };
 }
 
 export function getKidComposerAfterSend(

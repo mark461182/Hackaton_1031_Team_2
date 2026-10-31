@@ -393,6 +393,7 @@ export function createMemoryStore(options: MemoryStoreOptions = {}): EllyStore {
         (message) =>
           message.familyId === familyId &&
           message.from === "kid" &&
+          message.text.trim() !== "끝" &&
           toLocalIsoDate(message.createdAt, options.timezoneOffsetMinutes) === day &&
           message.createdAt <= finishedAt,
       ).length;

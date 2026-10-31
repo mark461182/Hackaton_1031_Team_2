@@ -135,10 +135,17 @@ test("일기에는 로컬 당일 대화만 담고 끝 버튼 메시지는 제외
       text: "끝",
       createdAt: "2026-10-31T16:00:00.000Z",
     },
+    {
+      id: "previous-finish-message",
+      familyId: family.id,
+      from: "kid",
+      text: "끝",
+      createdAt: "2026-10-31T15:30:00.000Z",
+    },
   ];
 
   assert.deepEqual(
-    selectDiaryMessages(messages, "2026-10-31T16:00:00.000Z", "finish-message", -540).map(
+    selectDiaryMessages(messages, "2026-10-31T16:00:00.000Z", -540).map(
       (message) => message.id,
     ),
     ["today-message"],
@@ -158,7 +165,6 @@ test("다른 말로 대화가 끝났다면 마지막 아이 말도 일기에 남
     selectDiaryMessages(
       [finalMessage],
       "2026-11-01T12:00:00.000Z",
-      finalMessage.id,
       -540,
     ),
     [finalMessage],

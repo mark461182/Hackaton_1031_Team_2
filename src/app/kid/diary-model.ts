@@ -41,7 +41,6 @@ export function parseKidDoneResponse(value: unknown): KidDoneResponse {
 export function selectDiaryMessages(
   messages: Message[],
   finishedAt: IsoTime,
-  finishingMessageId: Id,
   timezoneOffsetMinutes?: number,
 ): Message[] {
   const day = toLocalIsoDate(finishedAt, timezoneOffsetMinutes);
@@ -49,7 +48,7 @@ export function selectDiaryMessages(
     (message) =>
       toLocalIsoDate(message.createdAt, timezoneOffsetMinutes) === day &&
       message.createdAt <= finishedAt &&
-      !(message.id === finishingMessageId && message.text.trim() === "끝"),
+      message.text.trim() !== "끝",
   );
 }
 
