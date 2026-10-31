@@ -63,6 +63,7 @@ export default function VoiceLab() {
   const [interim, setInterim] = useState("");
   const [alts, setAlts] = useState<SttAlternative[]>([]);
   const [listening, setListening] = useState(false);
+  const [micReady, setMicReady] = useState(false);
   const [heardNothing, setHeardNothing] = useState(false); // 인식 결과가 비면 알려 준다 (아무 표시가 없으면 고장인지 모른다)
   const [trials, setTrials] = useState<Trial[]>([]);
   const ptt = useRef<PushToTalk | null>(null);
@@ -121,7 +122,8 @@ export default function VoiceLab() {
     setAlts([]);
     setInterim("");
     setHeardNothing(false);
-    ptt.current = createPushToTalk(setInterim);
+    setMicReady(false);
+    ptt.current = createPushToTalk(setInterim, undefined, undefined, () => setMicReady(true));
     ptt.current.start();
     setListening(true);
   }
@@ -234,7 +236,7 @@ export default function VoiceLab() {
             onClick={() => (listening ? endTalk() : startTalk())}
             className={`w-full rounded-2xl py-6 text-lg font-semibold ${listening ? "bg-pink-400 text-white" : "bg-pink-200"} disabled:opacity-40`}
           >
-            {listening ? "듣고 있어요… [정지]" : "[시작]"}
+            {listening ? (micReady ? "말하세요… [정지]" : "잠깐만… 마이크 여는 중") : "[시작]"}
           </button>
         ) : (
           <button
@@ -253,7 +255,7 @@ export default function VoiceLab() {
               listening ? "bg-pink-400 text-white" : "bg-pink-200"
             } disabled:opacity-40`}
           >
-            {listening ? "듣고 있어요… 손을 떼면 끝" : "꾹 누르고 말하기"}
+            {listening ? (micReady ? "말하세요… 손을 떼면 끝" : "잠깐만… 마이크 여는 중") : "꾹 누르고 말하기"}
           </button>
         )}
         {interim && <p className="text-gray-700">말하는 중: {interim}</p>}
