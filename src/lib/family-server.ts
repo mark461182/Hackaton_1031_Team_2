@@ -102,7 +102,9 @@ export async function readFamily(key: string) {
 
 /** 바뀐 기록을 합쳐 저장한다. 다른 기기가 먼저 저장했으면(버전이 달라졌으면) 새 상태에 다시 합친다 */
 export async function writeFamily(key: string, patch: FamilyPatch) {
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    // 같은 가족에 저장이 몰리면(부모·아이 폰 동시) 조금씩 다른 시간만큼 쉬었다가 다시 합친다
+    if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, 40 * attempt + Math.random() * 80));
     const found = await findByKey(key);
     if (!found) return null;
     const { row, role } = found;
