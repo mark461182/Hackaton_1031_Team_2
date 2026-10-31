@@ -8,6 +8,8 @@ import { useEffect, useRef, useState } from "react";
 import {
   FIXED_LINES,
   createPushToTalk,
+  externalOpenUrl,
+  inAppBrowser,
   isSttSupported,
   pickTranscript,
   speak,
@@ -46,7 +48,11 @@ export default function KidChat({ familyId = "demo", kidName, pendingQuestion = 
   const ptt = useRef<PushToTalk | null>(null);
   const kidTurns = useRef(0); // 대기 질문을 기다린 아이 말 횟수
   const [stt, setStt] = useState(false); // 음성 인식 지원 여부 (브라우저에서만 확인)
-  useEffect(() => setStt(isSttSupported()), []);
+  const [inApp, setInApp] = useState<string | null>(null); // 카톡 등 인앱 브라우저면 마이크가 막히는 경우가 많다
+  useEffect(() => {
+    setStt(isSttSupported());
+    setInApp(inAppBrowser());
+  }, []);
 
   async function say(text: string, previousText?: string) {
     setState("speaking");
@@ -170,6 +176,19 @@ export default function KidChat({ familyId = "demo", kidName, pendingQuestion = 
 
       {error && <p className="text-center text-sm text-amber-700">{error}</p>}
 
+      {inApp && (
+        <div className="rounded-2xl bg-amber-50 p-3 text-center text-sm">
+          <p>{inApp} 안에서는 마이크가 안 될 수 있어요. 글자로 쓰거나 크롬·사파리로 열어 주세요.</p>
+          {externalOpenUrl(window.location.href) ? (
+            <a href={externalOpenUrl(window.location.href)!} className="mt-2 inline-block rounded-full bg-amber-200 px-4 py-2 font-semibold">
+              브라우저로 열기
+            </a>
+          ) : (
+            <p className="mt-1 text-xs text-gray-500">오른쪽 위 메뉴 → &lsquo;Safari로 열기&rsquo;</p>
+          )}
+        </div>
+      )}
+
       {!ended && (
           <>
             {choices.length > 0 && (
@@ -184,9 +203,16 @@ export default function KidChat({ familyId = "demo", kidName, pendingQuestion = 
             {stt && (
               <button
                 disabled={busy}
-                onPointerDown={talkStart}
+                // 휴대폰에서 꾹 누르면 글자 선택·메뉴가 떠서 듣기가 끊기는 것을 막는다
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  e.currentTarget.setPointerCapture(e.pointerId); // 손가락이 버튼 밖으로 살짝 나가도 계속 듣기
+                  talkStart();
+                }}
                 onPointerUp={talkEnd}
-                onPointerLeave={() => state === "listening" && talkEnd()}
+                onPointerCancel={() => state === "listening" && talkEnd()}
+                onContextMenu={(e) => e.preventDefault()}
+                style={{ WebkitTouchCallout: "none", touchAction: "none" }}
                 className={`select-none rounded-3xl py-6 text-xl font-bold text-white shadow disabled:opacity-40 ${
                   state === "listening" ? "bg-pink-500" : "bg-pink-300"
                 }`}
