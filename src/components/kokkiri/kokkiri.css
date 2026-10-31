@@ -1,0 +1,123 @@
+/* 코끼리 플레이어 모양 — 무대(배경 그림이 깔린 요소) 안에 코끼리가 선다.
+   무대 요소에 position: relative; overflow: hidden; 이 있어야 한다. */
+
+/* 배경 두 겹 (플레이어가 무대 맨 뒤에 넣는다). 바꿀 때 0.6초 동안 서서히 덮는다 */
+.kk-bgs {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.kk-bg {
+  position: absolute;
+  inset: 0;
+  background: center / cover no-repeat;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+
+.kk-bg.on {
+  opacity: 1;
+}
+
+/* 코끼리 층 구조 (모두 처음부터 따로 그리는 층으로 둔다 → 움직임이 시작될 때 층을 새로 만드느라 화면이 멈추지 않게)
+   .kk         무대 가로 전체. 자리 이동은 transform으로만 (left를 바꾸면 매 프레임 레이아웃을 다시 계산한다)
+   .kk-actor   코끼리 크기·발끝 맞추기·다가오기(크기 배율)
+   .kk-body    톡/뛰기 동작
+   .kk-flip    좌우 바꾸기 (동작과 따로 둬서 애니메이션에 변수가 섞이지 않게) */
+.kk {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: var(--kk-ground, 16%); /* 풀밭 위 발 닿는 높이 */
+  transform: translateX(calc(var(--kk-x, 50%) - 50%));
+  transition: transform 0.8s cubic-bezier(0.45, 0.05, 0.35, 1);
+  will-change: transform;
+  pointer-events: none;
+}
+
+.kk-actor {
+  position: relative;
+  width: var(--kk-size, 88%);
+  aspect-ratio: 1;
+  margin: 0 auto;
+  /* 영상 속 발끝이 영상 높이의 88% 지점 → 그 점을 땅에 맞춘다 */
+  transform: translateY(12%) scale(var(--kk-s, 1));
+  transform-origin: 50% 88%;
+  transition: transform 0.5s ease;
+  will-change: transform;
+}
+
+.kk-body {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 88%;
+  will-change: transform;
+}
+
+.kk-flip {
+  position: absolute;
+  inset: 0;
+  transform: scaleX(var(--kk-flip, 1));
+}
+
+/* 영상 요소는 하나뿐이고 늘 보인다 (숨겼다 보이면 브라우저가 다시 그릴 준비를 하느라 멈추거나 비어 보인다) */
+.kk video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* 발밑 그림자 (영상에는 그림자가 없다 → 여기서 그린다). 두 겹: 발 바로 밑의 진한 것 + 넓고 옅은 것 */
+.kk-shadow {
+  position: absolute;
+  left: 50%;
+  top: 88.5%;
+  width: 82%;
+  height: 12%;
+  transform: translate(-50%, -50%);
+  background:
+    radial-gradient(closest-side, rgba(38, 52, 12, 0.55), rgba(38, 52, 12, 0) 80%) center / 74% 60% no-repeat,
+    radial-gradient(closest-side, rgba(38, 52, 12, 0.28), rgba(38, 52, 12, 0)) center / 100% 100% no-repeat;
+  will-change: transform, opacity;
+}
+
+/* 상태가 바로 바뀔 때 이음새를 가리는 "톡" */
+.kk.kk-pop .kk-body {
+  animation: kk-pop 0.26s ease-out;
+}
+
+/* 다른 자리로 뛰어 이동 */
+.kk.kk-hop .kk-body {
+  animation: kk-hop 0.8s ease-in-out;
+}
+
+.kk.kk-hop .kk-shadow {
+  animation: kk-shadow 0.8s ease-in-out;
+}
+
+@keyframes kk-pop {
+  0% { transform: scale(1, 1); }
+  35% { transform: scale(1.06, 0.93); }
+  70% { transform: scale(0.97, 1.04); }
+  100% { transform: scale(1, 1); }
+}
+
+@keyframes kk-hop {
+  0% { transform: translateY(0) scale(1, 1); }
+  15% { transform: translateY(0) scale(1.06, 0.92); }
+  45% { transform: translateY(-14%) scale(0.97, 1.04); }
+  75% { transform: translateY(0) scale(1.05, 0.94); }
+  100% { transform: translateY(0) scale(1, 1); }
+}
+
+@keyframes kk-shadow {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  45% { transform: translate(-50%, -50%) scale(0.65); opacity: 0.6; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kk, .kk-actor { transition: none; }
+  .kk.kk-pop .kk-body, .kk.kk-hop .kk-body, .kk.kk-hop .kk-shadow { animation: none; }
+}

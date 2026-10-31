@@ -170,3 +170,14 @@ test("다른 말로 대화가 끝났다면 마지막 아이 말도 일기에 남
     [finalMessage],
   );
 });
+
+test("선택지 버튼으로 보낸 말은 일기에 넣지 않는다", () => {
+  const messages: Message[] = [
+    { id: "own", familyId: family.id, from: "kid", text: "급식에 떡볶이 나왔어", createdAt: "2026-10-31T15:10:00.000Z" },
+    { id: "button", familyId: family.id, from: "kid", text: "더 말해 줄게", createdAt: "2026-10-31T15:11:00.000Z", viaChoice: true },
+  ];
+  assert.deepEqual(
+    selectDiaryMessages(messages, "2026-10-31T16:00:00.000Z", -540).map((message) => message.id),
+    ["own"],
+  );
+});

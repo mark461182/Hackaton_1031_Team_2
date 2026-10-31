@@ -77,6 +77,31 @@ function FeedCard({ entry, kidName }: FeedCardProps) {
     );
   }
 
+  if (entry.kind === "quiet") {
+    return (
+      <Card className={cardBase} data-ui="P-card-quiet">
+        <div className="flex items-start justify-between gap-4">
+          <h3 className="font-friendly text-[16px] text-ink">Elly가 물어봤어요</h3>
+          <time className="shrink-0 text-[12px] text-ink-soft" dateTime={entry.createdAt}>
+            {entry.timeLabel}
+          </time>
+        </div>
+        <div className="mt-5 rounded-2xl bg-sage-wash px-4 py-3">
+          <p className="text-[13px] font-semibold text-ink-label">맡긴 질문</p>
+          <p className="mt-1 text-[15px] leading-6 text-ink">{entry.data.original}</p>
+        </div>
+        <p className="mt-4 text-[15px] leading-6 text-ink-nav">
+          이번에는 전할 이야기가 없었어요. 며칠 뒤에 다른 말로 다시 맡겨 볼 수 있어요.
+        </p>
+        <div className="mt-3">
+          <Button href="/parent/ask" variant="text" className="text-[14px]" data-ui="P-card-quiet-ask">
+            다시 맡기기
+          </Button>
+        </div>
+      </Card>
+    );
+  }
+
   return (
     <Card tone="cream" className={cardBase} data-ui="P-card-story">
       <div className="flex items-start justify-between gap-4">
@@ -111,6 +136,11 @@ export function ParentFeed({ familyName, kidName, entries }: ParentFeedProps) {
         >
           아이에게 질문 맡기기
         </Button>
+        <div className="mt-3 text-center">
+          <Button href="/parent/charge" variant="text" className="text-[14px]" data-ui="P-charge">
+            코인 충전하기
+          </Button>
+        </div>
       </header>
 
       <section aria-labelledby="parent-feed-title" className="px-5 pb-8">

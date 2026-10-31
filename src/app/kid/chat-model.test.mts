@@ -29,9 +29,17 @@ const family: Family = {
 };
 
 test("아이 대화 상태를 서로 다른 Elly 이미지와 상태 문구로 만든다", () => {
-  assert.deepEqual(getKidStagePresentation("ready", false), {
+  assert.deepEqual(getKidStagePresentation("ready", false, "준우"), {
     asset: "greet",
     status: "안녕, 준우야!",
+  });
+  assert.deepEqual(getKidStagePresentation("ready", false, "민준"), {
+    asset: "greet",
+    status: "안녕, 민준아!",
+  });
+  assert.deepEqual(getKidStagePresentation("ready", false), {
+    asset: "greet",
+    status: "안녕! 이름이 뭐야?",
   });
   assert.deepEqual(getKidStagePresentation("listening", true), {
     asset: "listen",
@@ -53,15 +61,15 @@ test("아이 대화 상태를 서로 다른 Elly 이미지와 상태 문구로 �
 
 test("듣기·생각·말하기 상태는 음성 버튼 문구와 잠금 상태도 서로 다르다", () => {
   assert.deepEqual(getKidVoiceControlPresentation("listening", true), {
-    label: "듣고 있어요 · 손을 떼면 바로 보내요",
+    label: "듣고 있어 · 손을 떼면 바로 보낼게",
     disabled: false,
   });
   assert.deepEqual(getKidVoiceControlPresentation("thinking", true), {
-    label: "답을 생각하고 있어요",
+    label: "답을 생각하고 있어",
     disabled: true,
   });
   assert.deepEqual(getKidVoiceControlPresentation("speaking", true), {
-    label: "Elly가 말하고 있어요",
+    label: "Elly가 말하고 있어",
     disabled: true,
   });
 });
@@ -79,7 +87,7 @@ test("듣는 중 받아쓴 글자는 아이 화면에 노출하지 않는다", (
     getKidVoiceViewPresentation("listening", true, "잘못 받아쓴 문장"),
     {
       control: {
-        label: "듣고 있어요 · 손을 떼면 바로 보내요",
+        label: "듣고 있어 · 손을 떼면 바로 보낼게",
         disabled: false,
       },
     },
@@ -308,7 +316,7 @@ test("코인을 받으면 받은 개수와 현재 코인을 함께 안내한다"
     getFinishConversationNotice({ status: "awarded", coins: 20, awardedCoins: 10 }),
     {
       tone: "success",
-      text: "오늘 대화 코인 10개를 받았어요.",
+      text: "오늘 대화 코인 10개를 받았어!",
       coins: 20,
     },
   );
@@ -319,7 +327,7 @@ test("대화가 짧으면 코인 없이 더 이야기해야 한다고 안내한�
     getFinishConversationNotice({ status: "too_short", coins: 0, awardedCoins: 0 }),
     {
       tone: "neutral",
-      text: "코인을 받으려면 이야기를 조금 더 나눠 주세요.",
+      text: "코인을 받으려면 이야기를 조금 더 해 줘.",
       coins: 0,
     },
   );
@@ -330,7 +338,7 @@ test("오늘 이미 받았으면 현재 코인을 유지하고 중복 지급을 
     getFinishConversationNotice({ status: "already_awarded", coins: 10, awardedCoins: 0 }),
     {
       tone: "neutral",
-      text: "오늘 대화 코인은 이미 받았어요.",
+      text: "오늘 대화 코인은 벌써 받았어.",
       coins: 10,
     },
   );

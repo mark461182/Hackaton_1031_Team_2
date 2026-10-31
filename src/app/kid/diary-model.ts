@@ -48,7 +48,8 @@ export function selectDiaryMessages(
     (message) =>
       toLocalIsoDate(message.createdAt, timezoneOffsetMinutes) === day &&
       message.createdAt <= finishedAt &&
-      message.text.trim() !== "끝",
+      message.text.trim() !== "끝" &&
+      !message.viaChoice,
   );
 }
 

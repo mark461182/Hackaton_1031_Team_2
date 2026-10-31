@@ -2,7 +2,7 @@
 // 새 문장 추가: 아래 목록에 넣고 `node scripts/gen-fixed-voice.mjs` (그 문장만 크레딧 사용) → public/voice/에 mp3 생성
 
 export const FIXED_LINES = [
-  { file: "greet", text: "안녕! 나 코끼리야. 오늘 하루는 어땠어?" },
+  { file: "greet", text: "안녕! 나 Elly야. 오늘 하루는 어땠어?" },
   { file: "bye", text: "오늘 얘기해 줘서 고마워. 또 놀자!" },
   { file: "again", text: "잘 못 들었어. 다시 한 번 말해 줄래?" },
   { file: "slow", text: "괜찮아, 천천히 말해도 돼." },
@@ -14,6 +14,8 @@ export const FIXED_LINES = [
   { file: "oh", text: "오!" },
   { file: "really", text: "아 그랬어?" },
   { file: "uhhuh", text: "응응." },
+  { file: "share-yes", text: "좋아, 고마워!" },
+  { file: "share-no", text: "알겠어. 말하고 싶을 때 말해 줘." },
 ] as const;
 
 /** 답을 기다리는 동안 바로 틀 맞장구. 아이 말이 슬픈 내용이어도 어색하지 않은 중립적인 것만 */

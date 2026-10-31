@@ -14,7 +14,9 @@ import { toLocalIsoDate } from "./date.ts";
 export type ParentFeedItem =
   | { kind: "reply"; createdAt: IsoTime; data: Reply }
   | { kind: "alert"; createdAt: IsoTime; data: Alert }
-  | { kind: "share"; createdAt: IsoTime; data: Share };
+  | { kind: "share"; createdAt: IsoTime; data: Share }
+  /** Elly가 맡긴 질문을 물었지만 부모에게 전할 답이 없음 ("말하지 마" 등). 내용은 보내지 않는다 */
+  | { kind: "quiet"; createdAt: IsoTime; data: Question };
 
 export type KidTurnCommit = {
   kidMessage: Message;
@@ -36,6 +38,8 @@ export type FinishConversationResult = {
 export type EllyStore = {
   getOrCreateDemoFamily(visitorId: string): Promise<Family>;
   resetDemoFamily(visitorId: string): Promise<Family>;
+  setKidName(familyId: Id, kidName: string): Promise<Family>;
+  spendCoins(familyId: Id, amount: number): Promise<Family>;
   saveMessage(message: Message): Promise<void>;
   getMessages(familyId: Id): Promise<Message[]>;
   saveQuestion(question: Question): Promise<void>;
@@ -262,6 +266,28 @@ export function createMemoryStore(options: MemoryStoreOptions = {}): EllyStore {
       return family;
     },
 
+    async setKidName(familyId, kidName) {
+      const family = state.families.get(familyId);
+      const name = kidName.trim().slice(0, 12);
+      if (!family) throw new Error("가족을 찾을 수 없어요.");
+      if (!name) return family;
+      const updated: Family = { ...family, kidName: name, name: `${name}네` };
+      state.families.set(familyId, updated);
+      emit();
+      return updated;
+    },
+
+    async spendCoins(familyId, amount) {
+      const family = state.families.get(familyId);
+      if (!family) throw new Error("가족을 찾을 수 없어요.");
+      if (!Number.isInteger(amount) || amount <= 0) throw new Error("코인 수가 올바르지 않아요.");
+      if (family.coins < amount) throw new Error("코인이 모자라요.");
+      const updated: Family = { ...family, coins: family.coins - amount };
+      state.families.set(familyId, updated);
+      emit();
+      return updated;
+    },
+
     async saveMessage(message) {
       state.messages.set(recordKey(message.familyId, message.id), message);
       emit();
@@ -441,7 +467,25 @@ export function createMemoryStore(options: MemoryStoreOptions = {}): EllyStore {
         .filter((share) => share.familyId === familyId && share.status === "accepted")
         .map((data) => ({ kind: "share", createdAt: data.createdAt, data }));
 
-      return [...replies, ...alerts, ...shares].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      const repliedQuestionIds = new Set(
+        [...state.replies.values()].filter((reply) => reply.familyId === familyId).map((reply) => reply.questionId),
+      );
+      const riskQuestionIds = new Set(
+        [...state.messages.values()]
+          .filter((message) => message.familyId === familyId && message.category === "risk" && message.questionId)
+          .map((message) => message.questionId),
+      );
+      const quiet: ParentFeedItem[] = [...state.questions.values()]
+        .filter(
+          (question) =>
+            question.familyId === familyId &&
+            question.answeredAt !== undefined &&
+            !repliedQuestionIds.has(question.id) &&
+            !riskQuestionIds.has(question.id),
+        )
+        .map((data) => ({ kind: "quiet", createdAt: data.answeredAt ?? data.createdAt, data }));
+
+      return [...replies, ...alerts, ...shares, ...quiet].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     },
 
     subscribe(listener) {
