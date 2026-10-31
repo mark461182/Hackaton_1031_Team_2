@@ -58,20 +58,24 @@ type CreateChatDiaryEntryInput = {
   conversationId: Id;
   finishedAt: IsoTime;
   diary: string[];
-  nextId: () => Id;
+  /** 예전 호출 호환용 (id는 날짜로 정한다) */
+  nextId?: () => Id;
 };
+
+/** 하루에 일기 하나: 날짜로 id를 정해서 그날 대화를 마칠 때마다 같은 일기를 고쳐 쓴다 (가족 링크 동기화는 지우기를 못 옮겨서 id가 같아야 덮인다) */
+export const chatDiaryEntryId = (date: string) => `chat-diary:${date}`;
 
 export function createChatDiaryEntry({
   familyId,
   conversationId,
   finishedAt,
   diary,
-  nextId,
 }: CreateChatDiaryEntryInput): Entry {
+  const date = toLocalIsoDate(finishedAt);
   return {
-    id: nextId(),
+    id: chatDiaryEntryId(date),
     familyId,
-    date: toLocalIsoDate(finishedAt),
+    date,
     type: "chat",
     ref: conversationId,
     diary,

@@ -102,7 +102,7 @@ test("검증한 3줄 일기를 종료 날짜의 대화 기록으로 만든다", 
       nextId: () => "entry-1",
     }),
     {
-      id: "entry-1",
+      id: "chat-diary:2026-11-01",
       familyId: "family-1",
       date: "2026-11-01",
       type: "chat",

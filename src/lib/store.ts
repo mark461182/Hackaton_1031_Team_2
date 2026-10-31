@@ -482,9 +482,19 @@ export function createMemoryStore(options: MemoryStoreOptions = {}): EllyStore {
     },
 
     async getEntries(familyId) {
-      return [...state.entries.values()]
-        .filter((entry) => entry.familyId === familyId)
-        .sort((a, b) => a.date.localeCompare(b.date));
+      // 대화 일기는 하루에 하나만 보인다. 예전에 대화마다 따로 저장된 기록이 동기화로 남아 있으면 날짜 id 일기를 우선한다
+      const chatByDate = new Map<string, Entry>();
+      const others: Entry[] = [];
+      for (const entry of state.entries.values()) {
+        if (entry.familyId !== familyId) continue;
+        if (entry.type !== "chat") {
+          others.push(entry);
+          continue;
+        }
+        const kept = chatByDate.get(entry.date);
+        if (!kept || entry.id === `chat-diary:${entry.date}`) chatByDate.set(entry.date, entry);
+      }
+      return [...others, ...chatByDate.values()].sort((a, b) => a.date.localeCompare(b.date));
     },
 
     async getParentFeed(familyId) {

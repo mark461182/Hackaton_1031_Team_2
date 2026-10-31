@@ -856,3 +856,28 @@ test("부모가 지운 질문은 대기 줄에서 빠지고 기록은 남는다"
   assert.equal((await store.getPendingQuestion(family.id))?.id, "q2");
   assert.equal((await store.getQuestions(family.id)).find((q) => q.id === "q1")?.cancelledAt, "2026-11-01T00:02:00.000Z");
 });
+
+test("대화 일기는 하루에 하나만 보이고, 날짜 id 일기를 우선한다", async () => {
+  const store = createMemoryStore({
+    initialState: {
+      version: 1,
+      familyIdByVisitor: {},
+      families: [{ id: "f", name: "준우네", kidName: "준우", coins: 0, chargedWon: 0 }],
+      messages: [],
+      questions: [],
+      replies: [],
+      alerts: [],
+      shares: [],
+      entries: [
+        // 예전처럼 대화마다 따로 저장된 일기 (가족 링크 동기화로 남아 있는 경우)
+        { id: "old-1", familyId: "f", date: "2026-11-01", type: "chat", ref: "a", diary: ["옛", "일", "기"] },
+        { id: "chat-diary:2026-11-01", familyId: "f", date: "2026-11-01", type: "chat", ref: "b", diary: ["오", "늘", "꺼"] },
+        { id: "old-2", familyId: "f", date: "2026-11-01", type: "chat", ref: "c", diary: ["또", "옛", "것"] },
+        { id: "photo-1", familyId: "f", date: "2026-11-01", type: "photo", ref: "p" },
+      ],
+      coinAwardDays: {},
+    } as never,
+  });
+  const entries = await store.getEntries("f");
+  assert.deepEqual(entries.map((e) => e.id).sort(), ["chat-diary:2026-11-01", "photo-1"]);
+});
