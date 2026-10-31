@@ -29,6 +29,8 @@ export function FamilyLinkCard({ kidName }: { kidName: string }) {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
   const [confirmRotate, setConfirmRotate] = useState(false);
+  // 아이 이름은 부모가 정한다 (아이 화면에서는 바꾸지 않음). 기본 예시 이름(준우)으로 가족이 만들어지지 않게 꼭 받는다
+  const [nameInput, setNameInput] = useState("");
 
   useEffect(() => {
     if (isDemoContext()) return;
@@ -40,13 +42,18 @@ export function FamilyLinkCard({ kidName }: { kidName: string }) {
   if (!ready || link?.role === "kid") return null;
 
   async function create() {
+    const name = nameInput.trim();
+    if (!name) {
+      setNote("아이 이름을 먼저 적어 주세요.");
+      return;
+    }
     setBusy(true);
     setNote("");
     try {
       const res = await fetch("/api/family", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kidName }),
+        body: JSON.stringify({ kidName: name }),
       });
       if (!res.ok) throw new Error();
       const body = (await res.json()) as CreateResponse;
@@ -103,13 +110,26 @@ export function FamilyLinkCard({ kidName }: { kidName: string }) {
       <Card tone="sage" className="mt-5 p-5" data-ui="P-link">
         <h2 className="font-friendly text-[17px] text-sage-title">아이 폰과 연결하기</h2>
         <p className="mt-2 text-[14px] leading-6 text-ink-sage-body">
-          아이 링크를 만들어 {kidName}의 폰으로 보내 주세요. 그 링크로 들어온 폰만 우리 가족 기록을 함께 써요.
+          아이 이름을 적고 링크를 만들어 아이 폰으로 보내 주세요. 그 링크로 들어온 폰만 우리 가족 기록을 함께 써요.
         </p>
+        <label className="mt-4 block text-[13px] text-ink-sage-body" htmlFor="kid-name-input">
+          아이 이름 (Elly가 부를 이름)
+        </label>
+        <input
+          id="kid-name-input"
+          value={nameInput}
+          onChange={(event) => setNameInput(event.target.value)}
+          maxLength={12}
+          autoComplete="off"
+          placeholder="예: 준우"
+          className="mt-1 min-h-11 w-full rounded-2xl border border-line-input bg-surface px-4 text-[16px] text-ink"
+          data-ui="P-link-name"
+        />
         <Button
           size="sm"
-          className="mt-4 w-full px-4 text-[15px] hover:bg-sage-deep-hover disabled:opacity-60"
+          className="mt-3 w-full px-4 text-[15px] hover:bg-sage-deep-hover disabled:opacity-60"
           onClick={() => void create()}
-          disabled={busy}
+          disabled={busy || !nameInput.trim()}
           data-ui="P-link-create"
         >
           아이 링크 만들기

@@ -78,7 +78,6 @@ function KidChatScreen() {
   const [conversationFinished, setConversationFinished] = useState(false);
   const [diaryStatus, setDiaryStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [diaryRetry, setDiaryRetry] = useState<{ finishedAt: string; conversationId: string } | null>(null);
-  const [nameDraft, setNameDraft] = useState("");
   const [inApp, setInApp] = useState<string | null>(null);
   const [otherBrowser, setOtherBrowser] = useState<string | null>(null); // 크롬이 아니면 덜 알아들어서 크롬을 권한다 (막지는 않음)
   const [hideBrowserHint, setHideBrowserHint] = useState(false);
@@ -199,7 +198,6 @@ function KidChatScreen() {
     setDiaryStatus("idle");
     setDiaryRetry(null);
     try {
-      if (nameDraft.trim()) setFamily(await store.setKidName(family.id, nameDraft));
       const greeting: Message = {
         id: newId(),
         familyId: family.id,
@@ -431,7 +429,7 @@ function KidChatScreen() {
     void sendMessage(draft, false);
   }
 
-  const stage = getKidStagePresentation(screenState, started, nameDraft.trim() || family?.kidName);
+  const stage = getKidStagePresentation(screenState, started, family?.kidName);
   const voiceView = getKidVoiceViewPresentation(screenState, sttSupported, "");
   const voiceControl = voiceView.control;
   const recentMessages = messages.filter((message) => message.text.trim() !== END_WORD).slice(-2);
@@ -540,19 +538,6 @@ function KidChatScreen() {
 
           {!started && screenState !== "loading" ? (
             <div className="grid gap-2">
-              <label className="sr-only" htmlFor="kid-name">
-                내 이름
-              </label>
-              <input
-                id="kid-name"
-                value={nameDraft}
-                onChange={(event) => setNameDraft(event.target.value)}
-                maxLength={12}
-                autoComplete="off"
-                placeholder={family?.kidName ? `이름 (지금은 ${family.kidName})` : "이름"}
-                data-ui="K-name"
-                className="font-friendly min-h-12 min-w-0 rounded-full border border-line-input bg-surface px-5 text-center text-[16px] text-kid-ink"
-              />
               <Button
                 variant="kid"
                 size="xl"
