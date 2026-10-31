@@ -1,7 +1,7 @@
 // 부모 걱정·질문 → 아이가 답하기 쉬운 질문으로 다듬기 (docs/03 API). 저장하지 않는다
-// 지금은 가짜 응답(mock: true). Bedrock이 붙으면 이 자리에서 LLM을 부른다
+// LLM(래블업) 설정이 있으면 진짜, 없거나 실패하면 가짜 응답(mock: true)
 import type { NextRequest } from "next/server";
-import { mockParentAsk } from "@/lib/llm/mock";
+import { parentAsk } from "@/lib/llm/kokkiri";
 import type { ParentAskRequest } from "@/lib/types";
 
 export async function POST(req: NextRequest) {
@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
   }
   if (body.text.length > 1000) return Response.json({ error: "text가 너무 길어요" }, { status: 413 });
   return Response.json(
-    mockParentAsk({
+    await parentAsk({
       familyId: typeof body.familyId === "string" ? body.familyId : "",
       kidName: typeof body.kidName === "string" ? body.kidName : undefined,
       text: body.text,

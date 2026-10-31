@@ -39,4 +39,4 @@
 - 커밋 메시지·UI 문구는 한국어
 
 ## 스택
-Next.js 15 App Router · TypeScript · Tailwind CSS · Vercel · Supabase(저장) · AWS Bedrock(LLM) · 타입캐스트(코끼리 목소리). 명령: `npm run dev`, `npm run build`, `npm run lint`
+Next.js 15 App Router · TypeScript · Tailwind CSS · Vercel · Supabase(저장) · 래블업 토큰팩토리(LLM, OpenAI 호환) · 타입캐스트(코끼리 목소리). 명령: `npm run dev`, `npm run build`, `npm run lint`

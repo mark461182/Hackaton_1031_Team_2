@@ -34,6 +34,7 @@ export type KidComposerState = {
 export type KidSendOutcome =
   | { type: "failed" }
   | { type: "succeeded"; choices: string[] };
+export type KidVoiceSendIntent = { text: string; confirmed: true };
 
 export function getFinishConversationNotice(
   result: FinishConversationResult,
@@ -78,7 +79,7 @@ export function getKidVoiceControlPresentation(
   sttSupported: boolean,
 ): { label: string; disabled: boolean } {
   if (state === "listening") {
-    return { label: "듣고 있어요 · 손을 떼면 확인", disabled: false };
+    return { label: "듣고 있어요 · 손을 떼면 바로 보내요", disabled: false };
   }
   if (state === "thinking" || state === "loading") {
     return { label: "답을 생각하고 있어요", disabled: true };
@@ -90,6 +91,11 @@ export function getKidVoiceControlPresentation(
     return { label: "마이크 미지원 · 글자로 말해 주세요", disabled: true };
   }
   return { label: "꾹 누르고 말하기", disabled: false };
+}
+
+export function getKidVoiceSendIntent(transcript: string): KidVoiceSendIntent | undefined {
+  const text = transcript.trim();
+  return text ? { text, confirmed: true } : undefined;
 }
 
 export function getKidComposerAfterSend(

@@ -11,6 +11,7 @@ import {
   getKidComposerAfterSend,
   getKidStagePresentation,
   getKidVoiceControlPresentation,
+  getKidVoiceSendIntent,
   parseKidChatResponse,
   type FinishConversationNotice,
   type KidScreenState,
@@ -47,7 +48,6 @@ export default function KidPage() {
   const [choices, setChoices] = useState<string[]>([]);
   const [draft, setDraft] = useState("");
   const [interim, setInterim] = useState("");
-  const [heardText, setHeardText] = useState("");
   const [screenState, setScreenState] = useState<KidScreenState>("loading");
   const [sttSupported, setSttSupported] = useState(false);
   const [error, setError] = useState("");
@@ -194,9 +194,14 @@ export default function KidPage() {
     }
   }
 
-  async function sendMessage(text: string, confirmed: boolean) {
+  async function sendMessage(text: string, confirmed: boolean, allowWhileListening = false) {
     const clean = text.trim();
-    if (!family || !clean || screenState === "listening" || !actionGate.current.tryEnter()) return;
+    if (
+      !family ||
+      !clean ||
+      (screenState === "listening" && !allowWhileListening) ||
+      !actionGate.current.tryEnter()
+    ) return;
 
     unlockTts();
     interruptSpeech();
@@ -257,11 +262,10 @@ export default function KidPage() {
       }
 
       const nextComposer = getKidComposerAfterSend(
-        { draft, heardText, interim, choices },
+        { draft, heardText: "", interim, choices },
         { type: "succeeded", choices: result.choices },
       );
       setDraft(nextComposer.draft);
-      setHeardText(nextComposer.heardText);
       setInterim(nextComposer.interim);
       setChoices(nextComposer.choices);
       setPendingShareId(records.share?.id ?? null);
@@ -270,11 +274,10 @@ export default function KidPage() {
       stopSpeaking();
       setMessages(await store.getMessages(family.id));
       const retainedComposer = getKidComposerAfterSend(
-        { draft, heardText, interim, choices },
+        { draft, heardText: "", interim, choices },
         { type: "failed" },
       );
       setDraft(retainedComposer.draft || clean);
-      setHeardText(retainedComposer.heardText);
       setInterim(retainedComposer.interim);
       setChoices(retainedComposer.choices);
       setError("잠시 연결이 안 됐어요. 작성한 말을 그대로 두었어요. 다시 보내 주세요.");
@@ -328,29 +331,32 @@ export default function KidPage() {
     if (!ptt) return;
     pushToTalk.current = null;
     activePointerId.current = null;
+    let sent = false;
     try {
       if (event?.currentTarget.hasPointerCapture(event.pointerId)) {
         event.currentTarget.releasePointerCapture(event.pointerId);
       }
       const alternatives = await ptt.stop();
-      const picked = pickTranscript(alternatives, choices, KID_CONTEXT_WORDS).trim();
-      if (!picked) {
+      const intent = getKidVoiceSendIntent(
+        pickTranscript(alternatives, choices, KID_CONTEXT_WORDS),
+      );
+      if (!intent) {
         setError("잘 들리지 않았어요. 다시 말하거나 글자로 입력해 주세요.");
         return;
       }
-      setDraft(picked);
-      setHeardText(picked);
+      sent = true;
+      await sendMessage(intent.text, intent.confirmed, true);
     } catch {
       setError("음성을 글자로 바꾸지 못했어요. 다시 말하거나 글자로 입력해 주세요.");
     } finally {
       setInterim("");
-      setScreenState("ready");
+      if (!sent) setScreenState("ready");
     }
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    void sendMessage(draft, heardText.length > 0);
+    void sendMessage(draft, false);
   }
 
   const stage = getKidStagePresentation(screenState, started);
@@ -476,35 +482,7 @@ export default function KidPage() {
                 </div>
               ) : null}
 
-              {heardText && !conversationFinished ? (
-                <div className="mb-2 rounded-[20px] bg-white p-4">
-                  <p className="text-[13px] text-[#5E655C]">이렇게 말한 게 맞아?</p>
-                  <p className="font-friendly mt-2 text-[17px] leading-6">“{heardText}”</p>
-                  <div className="mt-4 grid grid-cols-2 gap-2">
-                    <button
-                      className="font-friendly min-h-11 rounded-2xl bg-[#DCE8D8] px-3 text-[15px]"
-                      disabled={busy}
-                      onClick={() => {
-                        setHeardText("");
-                        setDraft("");
-                      }}
-                      type="button"
-                    >
-                      다시 말하기
-                    </button>
-                    <button
-                      className="font-friendly min-h-11 rounded-2xl bg-[#4F6F59] px-3 text-[15px] text-white"
-                      disabled={busy}
-                      onClick={() => void sendMessage(heardText, true)}
-                      type="button"
-                    >
-                      맞아
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-
-              {choices.length > 0 && !heardText && !conversationFinished ? (
+              {choices.length > 0 && !conversationFinished ? (
                 <div className="mb-2 grid grid-cols-2 gap-2">
                   {choices.map((choice) => (
                     <button
@@ -520,7 +498,7 @@ export default function KidPage() {
                 </div>
               ) : null}
 
-              {!heardText && !conversationFinished ? (
+              {!conversationFinished ? (
                 <button
                   type="button"
                   disabled={voiceControl.disabled}
@@ -548,10 +526,7 @@ export default function KidPage() {
                     <input
                       id="kid-message"
                       value={draft}
-                      onChange={(event) => {
-                        setDraft(event.target.value);
-                        if (heardText) setHeardText(event.target.value);
-                      }}
+                      onChange={(event) => setDraft(event.target.value)}
                       disabled={busy}
                       maxLength={1000}
                       placeholder="키보드로 말하기"

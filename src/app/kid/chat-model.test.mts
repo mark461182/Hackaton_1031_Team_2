@@ -15,6 +15,7 @@ const {
   getKidComposerAfterSend,
   getKidStagePresentation,
   getKidVoiceControlPresentation,
+  getKidVoiceSendIntent,
   parseKidChatResponse,
 } = require("./chat-model.ts") as typeof ChatModel;
 
@@ -51,7 +52,7 @@ test("아이 대화 상태를 서로 다른 Elly 이미지와 상태 문구로 �
 
 test("듣기·생각·말하기 상태는 음성 버튼 문구와 잠금 상태도 서로 다르다", () => {
   assert.deepEqual(getKidVoiceControlPresentation("listening", true), {
-    label: "듣고 있어요 · 손을 떼면 확인",
+    label: "듣고 있어요 · 손을 떼면 바로 보내요",
     disabled: false,
   });
   assert.deepEqual(getKidVoiceControlPresentation("thinking", true), {
@@ -62,6 +63,14 @@ test("듣기·생각·말하기 상태는 음성 버튼 문구와 잠금 상태�
     label: "Elly가 말하고 있어요",
     disabled: true,
   });
+});
+
+test("음성 인식 결과는 확인 단계 없이 즉시 전송 값이 되고 빈 문장은 보내지 않는다", () => {
+  assert.deepEqual(getKidVoiceSendIntent("  오늘 민수랑 놀았어  "), {
+    text: "오늘 민수랑 놀았어",
+    confirmed: true,
+  });
+  assert.equal(getKidVoiceSendIntent("   "), undefined);
 });
 
 test("전송 실패 뒤에는 작성 중인 말을 보존하고 성공 뒤에만 입력을 비운다", () => {
