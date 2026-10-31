@@ -23,6 +23,8 @@ import {
   selectDiaryMessages,
 } from "./diary-model";
 import { EllyStage } from "@/components/elly-stage";
+import { Button } from "@/components/ui/Button";
+import { TopBar } from "@/components/ui/TopBar";
 import { getVisitorId, store } from "@/lib/store";
 import type { ApiError, Family, Message } from "@/lib/types";
 import {
@@ -359,24 +361,32 @@ export default function KidPage() {
   const recentMessages = messages.slice(-2);
 
   return (
-    <main className="min-h-dvh bg-[#F7F4EC] text-[#383D37]">
-      <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col overflow-x-hidden bg-[#F7F4EC]">
-        <header className="grid min-h-[52px] grid-cols-[64px_1fr_80px] items-center px-5">
-          <Link
-            href="/"
-            className="flex min-h-11 items-center text-[15px] text-[#5E655C]"
-            aria-label="첫 화면으로 돌아가기"
-          >
-            ←
-          </Link>
-          <h1 className="font-friendly text-center text-[18px]">Elly</h1>
-          <span
-            className="flex min-h-11 items-center justify-end text-[13px] tabular-nums text-[#5E655C]"
-            aria-label={`보유 코인 ${family?.coins ?? 0}개`}
-          >
-            코인 {family?.coins ?? 0}
-          </span>
-        </header>
+    <main className="min-h-dvh bg-ivory text-ink">
+      <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col overflow-x-hidden bg-ivory">
+        <TopBar
+          columns="wide"
+          className="px-5"
+          left={
+            <Link
+              href="/"
+              className="flex min-h-11 items-center text-[15px] text-ink-muted"
+              aria-label="첫 화면으로 돌아가기"
+              data-ui="K-back"
+            >
+              ←
+            </Link>
+          }
+          title={<h1 className="font-friendly text-center text-[18px]">Elly</h1>}
+          right={
+            <span
+              className="flex min-h-11 items-center justify-end text-[13px] tabular-nums text-ink-muted"
+              aria-label={`보유 코인 ${family?.coins ?? 0}개`}
+              data-ui="K-coins"
+            >
+              코인 {family?.coins ?? 0}
+            </span>
+          }
+        />
 
         <section className="flex min-h-0 flex-1 flex-col px-5 pb-3" aria-live="polite">
           <EllyStage
@@ -389,10 +399,10 @@ export default function KidPage() {
               <div className="mt-3 grid w-full gap-2 text-left">
                 {recentMessages.map((message) => (
                   <p
-                    className={`font-friendly max-w-[88%] rounded-[20px] px-4 py-3 text-[16px] leading-6 ${
+                    className={`font-friendly max-w-[88%] rounded-card px-4 py-3 text-[16px] leading-6 ${
                       message.from === "kid"
-                        ? "ml-auto rounded-br-md bg-[#DCE8D8] text-[#383D37]"
-                        : "rounded-bl-md bg-white text-[#383D37]"
+                        ? "ml-auto rounded-br-md bg-sage-light text-ink"
+                        : "rounded-bl-md bg-surface text-ink"
                     }`}
                     key={`${message.familyId}:${message.id}`}
                   >
@@ -404,28 +414,29 @@ export default function KidPage() {
           </EllyStage>
 
           {screenState === "loading" ? (
-            <p className="pb-5 text-center text-[14px] text-[#5E655C]">대화를 불러오고 있어요.</p>
+            <p className="pb-5 text-center text-[14px] text-ink-muted">대화를 불러오고 있어요.</p>
           ) : null}
 
           {error ? (
-            <p className="mb-2 rounded-2xl bg-[#F9E3DF] px-4 py-3 text-[14px] leading-5 text-[#873B32]" role="alert">
+            <p className="mb-2 rounded-2xl bg-danger-bg px-4 py-3 text-[14px] leading-5 text-danger-ink" role="alert">
               {error}
             </p>
           ) : null}
 
           {!started && screenState !== "loading" ? (
             <div className="pb-[max(20px,env(safe-area-inset-bottom))]">
-              <p className="mx-auto mb-4 max-w-[30ch] text-center text-[15px] leading-6 text-[#5E655C]">
+              <p className="mx-auto mb-4 max-w-[30ch] text-center text-[15px] leading-6 text-ink-muted">
                 버튼을 누르면 Elly가 먼저 소리로 인사해요.
               </p>
-              <button
-                type="button"
+              <Button
+                size="xl"
                 onClick={() => void startConversation()}
                 disabled={!family || busy}
-                className="font-friendly min-h-[64px] w-full rounded-2xl bg-[#4F6F59] px-5 text-[18px] text-white transition-transform active:scale-[0.99] disabled:bg-[#E8E6DF] disabled:text-[#565B55]"
+                className="w-full px-5 text-[18px] transition-transform active:scale-[0.99] disabled:bg-disabled-bg disabled:text-disabled-ink"
+                data-ui="K-start"
               >
                 이야기 시작
-              </button>
+              </Button>
             </div>
           ) : null}
 
@@ -433,35 +444,39 @@ export default function KidPage() {
             <div className="mt-auto pb-[max(12px,env(safe-area-inset-bottom))]">
               {finishNotice ? (
                 <div
-                  className={`mb-2 rounded-[20px] px-4 py-4 ${
-                    finishNotice.tone === "success" ? "bg-[#DCE8D8]" : "bg-white"
+                  className={`mb-2 rounded-card px-4 py-4 ${
+                    finishNotice.tone === "success" ? "bg-sage-light" : "bg-surface"
                   }`}
                   role="status"
                 >
                   <p className="font-friendly text-[16px] leading-6">{finishNotice.text}</p>
-                  <p className="mt-1 text-[13px] tabular-nums text-[#5E655C]">
+                  <p className="mt-1 text-[13px] tabular-nums text-ink-muted">
                     지금 {finishNotice.coins}코인
                   </p>
                   {diaryStatus === "saving" ? (
-                    <p className="mt-3 text-[14px] text-[#5E655C]">오늘 기록을 만들고 있어요.</p>
+                    <p className="mt-3 text-[14px] text-ink-muted">오늘 기록을 만들고 있어요.</p>
                   ) : null}
                   {diaryStatus === "saved" ? (
-                    <Link
+                    <Button
                       href="/kid/calendar"
-                      className="font-friendly mt-3 flex min-h-11 items-center justify-center rounded-2xl bg-white px-4 text-[15px] text-[#383D37]"
+                      variant="surface"
+                      size="xs"
+                      className="mt-3 px-4 text-[15px]"
+                      data-ui="K-records"
                     >
                       내 기록 보기
-                    </Link>
+                    </Button>
                   ) : null}
                   {diaryStatus === "error" && diaryRetry ? (
-                    <div className="mt-3 rounded-2xl bg-[#F9E3DF] p-3">
-                      <p className="text-[14px] leading-5 text-[#873B32]">
+                    <div className="mt-3 rounded-2xl bg-danger-bg p-3">
+                      <p className="text-[14px] leading-5 text-danger-ink">
                         오늘 기록만 저장하지 못했어요. 다시 눌러 주세요.
                       </p>
                       <button
                         type="button"
                         onClick={() => void saveConversationDiary(diaryRetry.finishedAt, diaryRetry.conversationId)}
-                        className="font-friendly mt-2 min-h-11 w-full rounded-xl bg-white px-3 text-[14px] text-[#383D37]"
+                        className="font-friendly mt-2 min-h-11 w-full rounded-xl bg-surface px-3 text-[14px] text-ink"
+                        data-ui="K-retry"
                       >
                         기록 다시 저장
                       </button>
@@ -472,37 +487,43 @@ export default function KidPage() {
 
               {choices.length > 0 && !conversationFinished ? (
                 <div className="mb-2 grid grid-cols-2 gap-2">
-                  {choices.map((choice) => (
-                    <button
+                  {choices.map((choice, index) => (
+                    <Button
                       key={choice}
-                      type="button"
+                      variant="secondary"
+                      size="sm"
                       onClick={() => void choose(choice)}
                       disabled={busy}
-                      className="font-friendly min-h-12 rounded-2xl bg-[#DCE8D8] px-3 text-[15px] text-[#383D37] disabled:opacity-50"
+                      className="px-3 text-[15px] disabled:opacity-50"
+                      data-ui={
+                        pendingShareId && choice === "좋아"
+                          ? "K-share-yes"
+                          : pendingShareId && choice === "싫어"
+                            ? "K-share-no"
+                            : `K-choice-${index + 1}`
+                      }
                     >
                       {choice}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               ) : null}
 
               {!conversationFinished ? (
-                <button
-                  type="button"
+                <Button
+                  variant={screenState === "listening" ? "listening" : "primary"}
+                  size="xl"
                   disabled={voiceControl.disabled}
                   onPointerDown={startTalk}
                   onPointerUp={(event) => void endTalk(event)}
                   onPointerCancel={(event) => void endTalk(event)}
                   onLostPointerCapture={(event) => void endTalk(event)}
                   onContextMenu={(event) => event.preventDefault()}
-                  className={`font-friendly min-h-[64px] w-full touch-none select-none rounded-2xl px-5 text-[17px] transition-transform active:scale-[0.99] ${
-                    screenState === "listening"
-                      ? "bg-[#728F7A] text-[#111614]"
-                      : "bg-[#4F6F59] text-white"
-                  } disabled:bg-[#E8E6DF] disabled:text-[#565B55]`}
+                  className="w-full touch-none select-none px-5 text-[17px] transition-transform active:scale-[0.99] disabled:bg-disabled-bg disabled:text-disabled-ink"
+                  data-ui="K-talk"
                 >
                   {voiceControl.label}
-                </button>
+                </Button>
               ) : null}
 
               {!conversationFinished ? (
@@ -518,36 +539,44 @@ export default function KidPage() {
                       disabled={busy}
                       maxLength={1000}
                       placeholder="키보드로 말하기"
-                      className="min-h-12 min-w-0 rounded-2xl border border-[#D8D9D1] bg-white px-4 text-[15px] text-[#383D37] disabled:opacity-50"
+                      data-ui="K-text"
+                      className="min-h-12 min-w-0 rounded-2xl border border-line-input bg-surface px-4 text-[15px] text-ink disabled:opacity-50"
                     />
-                    <button
+                    <Button
                       type="submit"
+                      variant="secondary"
+                      size="sm"
                       disabled={!draft.trim() || busy || screenState === "listening"}
-                      className="font-friendly min-h-12 rounded-2xl bg-[#DCE8D8] px-4 text-[15px] text-[#383D37] disabled:bg-[#E8E6DF] disabled:text-[#777B75]"
+                      className="px-4 text-[15px] disabled:bg-disabled-bg disabled:text-disabled-ink-soft"
+                      data-ui="K-send"
                     >
                       보내기
-                    </button>
+                    </Button>
                   </form>
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="xs"
                     disabled={busy || screenState === "listening"}
                     onClick={() => void sendMessage("끝", false)}
-                    className="font-friendly mt-2 min-h-11 w-full rounded-2xl text-[14px] text-[#5E655C] disabled:opacity-50"
+                    className="mt-2 w-full text-[14px] disabled:opacity-50"
+                    data-ui="K-end"
                   >
                     대화 마치기
-                  </button>
+                  </Button>
                 </>
               ) : (
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
+                  size="sm"
                   onClick={() => {
                     setConversationFinished(false);
                     setFinishNotice(null);
                   }}
-                  className="font-friendly min-h-12 w-full rounded-2xl bg-[#DCE8D8] px-4 text-[15px] text-[#383D37]"
+                  className="w-full px-4 text-[15px]"
+                  data-ui="K-more"
                 >
                   이야기 더 하기
-                </button>
+                </Button>
               )}
               <div ref={bottomRef} />
             </div>

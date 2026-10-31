@@ -72,7 +72,7 @@ export function EllyStage({
           />
         )}
       </div>
-      <p className="font-friendly mt-1 text-[18px] leading-7 text-[#383D37]">{status}</p>
+      <p className="font-friendly mt-1 text-[18px] leading-7 text-ink">{status}</p>
       {children}
     </div>
   );

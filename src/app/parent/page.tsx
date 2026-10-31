@@ -41,7 +41,7 @@ export default function ParentPage() {
   }, [loadFeed]);
 
   return (
-    <main className="min-h-dvh w-full bg-[#F7F4EC] text-[#383D37]">
+    <main className="min-h-dvh w-full bg-ivory text-ink">
       <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col overflow-x-hidden">
         {state.status === "loading" ? <ParentFeedLoading /> : null}
         {state.status === "error" ? <ParentFeedError onRetry={() => void loadFeed()} /> : null}
