@@ -38,6 +38,7 @@ import {
   externalOpenUrl,
   getSpeechLevel,
   inAppBrowser,
+  nonChromeBrowser,
   isSttSupported,
   pickTranscript,
   speak,
@@ -79,6 +80,8 @@ function KidChatScreen() {
   const [diaryRetry, setDiaryRetry] = useState<{ finishedAt: string; conversationId: string } | null>(null);
   const [nameDraft, setNameDraft] = useState("");
   const [inApp, setInApp] = useState<string | null>(null);
+  const [otherBrowser, setOtherBrowser] = useState<string | null>(null); // 크롬이 아니면 덜 알아들어서 크롬을 권한다 (막지는 않음)
+  const [hideBrowserHint, setHideBrowserHint] = useState(false);
   const [panelHeight, setPanelHeight] = useState(240);
   const pushToTalk = useRef<PushToTalk | null>(null);
   const activePointerId = useRef<number | null>(null);
@@ -110,6 +113,7 @@ function KidChatScreen() {
         setFamily(loadedFamily);
         setSttSupported(isSttSupported());
         setInApp(inAppBrowser());
+        setOtherBrowser(nonChromeBrowser());
         setScreenState("ready");
         unsubscribe = store.subscribe(() => void refresh());
       } catch {
@@ -432,9 +436,10 @@ function KidChatScreen() {
   const voiceControl = voiceView.control;
   const recentMessages = messages.filter((message) => message.text.trim() !== END_WORD).slice(-2);
   // 외부 브라우저는 저장 공간이 따로라서 열쇠를 다시 붙여 넘긴다 (안 붙이면 링크 안내 화면으로 초기화된다)
-  const link = inApp && typeof window !== "undefined" ? activeFamilyLink() : null;
+  const wantsOtherBrowser = Boolean(inApp || otherBrowser);
+  const link = wantsOtherBrowser && typeof window !== "undefined" ? activeFamilyLink() : null;
   const openUrl =
-    inApp && typeof window !== "undefined"
+    wantsOtherBrowser && typeof window !== "undefined"
       ? externalOpenUrl(link?.role === "kid" ? kidLinkUrl(window.location.origin, link.key) : window.location.href)
       : null;
 
@@ -485,6 +490,22 @@ function KidChatScreen() {
             ) : (
               <p className="mt-1 text-[12px] text-ink-muted">오른쪽 위 메뉴 → &lsquo;Safari로 열기&rsquo;</p>
             )}
+          </div>
+        ) : otherBrowser && !hideBrowserHint ? (
+          <div className="mx-4 mt-1 rounded-card bg-surface/90 px-4 py-3 text-[14px] leading-5" role="note" data-ui="K-chrome-hint">
+            <p>{otherBrowser}보다 크롬에서 내 말을 더 잘 알아들어.</p>
+            <div className="mt-2 flex items-center gap-3">
+              {openUrl ? (
+                <a href={openUrl} className="font-friendly inline-block rounded-full bg-kid-accent px-4 py-2 text-on-sage" data-ui="K-open-chrome">
+                  크롬으로 열기
+                </a>
+              ) : (
+                <span className="text-[12px] text-ink-muted">크롬으로 이 주소를 열어 줘.</span>
+              )}
+              <button type="button" className="text-[13px] text-ink-muted underline underline-offset-4" onClick={() => setHideBrowserHint(true)} data-ui="K-chrome-hint-close">
+                그냥 할래
+              </button>
+            </div>
           </div>
         ) : null}
 
