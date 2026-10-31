@@ -26,6 +26,7 @@ import { KokkiriStage } from "@/components/kokkiri/KokkiriStage";
 import { KokkiriLipSync } from "@/components/kokkiri/kokkiri-lipsync";
 import type { KokkiriPlayer } from "@/components/kokkiri/kokkiri-player";
 import { LinkGate } from "@/components/link-gate";
+import { activeFamilyLink, kidLinkUrl } from "@/lib/family-link";
 import { Button } from "@/components/ui/Button";
 import { TopBar } from "@/components/ui/TopBar";
 import { getVisitorId, store } from "@/lib/store";
@@ -416,7 +417,12 @@ function KidChatScreen() {
   const voiceView = getKidVoiceViewPresentation(screenState, sttSupported, "");
   const voiceControl = voiceView.control;
   const recentMessages = messages.filter((message) => message.text.trim() !== END_WORD).slice(-2);
-  const openUrl = inApp && typeof window !== "undefined" ? externalOpenUrl(window.location.href) : null;
+  // 외부 브라우저는 저장 공간이 따로라서 열쇠를 다시 붙여 넘긴다 (안 붙이면 링크 안내 화면으로 초기화된다)
+  const link = inApp && typeof window !== "undefined" ? activeFamilyLink() : null;
+  const openUrl =
+    inApp && typeof window !== "undefined"
+      ? externalOpenUrl(link?.role === "kid" ? kidLinkUrl(window.location.origin, link.key) : window.location.href)
+      : null;
 
   return (
     <main className="min-h-dvh bg-kid-sky text-kid-ink">
