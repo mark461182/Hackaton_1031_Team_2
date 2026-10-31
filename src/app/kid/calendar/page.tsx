@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
+import { getLocalCalendarMonth } from "@/lib/date";
 import { getVisitorId, store } from "@/lib/store";
 import type { Entry, Family, IsoDate } from "@/lib/types";
 
@@ -16,8 +17,7 @@ import {
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
 const getCurrentMonth = (): CalendarMonth => {
-  const current = new Date();
-  return { year: current.getUTCFullYear(), monthIndex: current.getUTCMonth() };
+  return getLocalCalendarMonth();
 };
 
 const formatDiaryDate = (date: IsoDate): string => {

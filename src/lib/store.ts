@@ -9,6 +9,7 @@ import type {
   Reply,
   Share,
 } from "./types";
+import { toLocalIsoDate } from "./date.ts";
 
 export type ParentFeedItem =
   | { kind: "reply"; createdAt: IsoTime; data: Reply }
@@ -83,6 +84,7 @@ type PersistedState = {
 type MemoryStoreOptions = {
   initialState?: PersistedState;
   onChange?: (state: PersistedState) => void;
+  timezoneOffsetMinutes?: number;
 };
 
 export type StorageLike = {
@@ -381,7 +383,7 @@ export function createMemoryStore(options: MemoryStoreOptions = {}): EllyStore {
       const family = state.families.get(familyId);
       if (!family) throw new Error("가족을 찾을 수 없어요");
 
-      const day = finishedAt.slice(0, 10);
+      const day = toLocalIsoDate(finishedAt, options.timezoneOffsetMinutes);
       const awardedDays = state.coinAwardDays.get(familyId) ?? new Set<string>();
       if (awardedDays.has(day)) {
         return { status: "already_awarded", coins: family.coins, awardedCoins: 0 };
@@ -391,7 +393,7 @@ export function createMemoryStore(options: MemoryStoreOptions = {}): EllyStore {
         (message) =>
           message.familyId === familyId &&
           message.from === "kid" &&
-          message.createdAt.slice(0, 10) === day &&
+          toLocalIsoDate(message.createdAt, options.timezoneOffsetMinutes) === day &&
           message.createdAt <= finishedAt,
       ).length;
       if (kidTurnCount < 3) {
@@ -569,8 +571,8 @@ export function createBrowserStore(storage?: StorageLike, sync?: StoreSync): Ell
 
 let memoryVisitorId: string | undefined;
 
-export function getVisitorId(storage?: StorageLike): string {
-  const target = storage ?? getDefaultSessionStorage();
+export function getVisitorId(storage?: StorageLike, legacyStorage?: StorageLike): string {
+  const target = storage ?? getDefaultLocalStorage();
   try {
     const saved = target?.getItem(VISITOR_STORAGE_KEY);
     if (saved) return saved;
@@ -578,11 +580,27 @@ export function getVisitorId(storage?: StorageLike): string {
     // 아래 메모리 ID를 사용한다.
   }
 
+  const legacyTarget = legacyStorage ?? (storage ? undefined : getDefaultSessionStorage());
+  try {
+    const legacyVisitorId = legacyTarget?.getItem(VISITOR_STORAGE_KEY);
+    if (legacyVisitorId) {
+      try {
+        target?.setItem(VISITOR_STORAGE_KEY, legacyVisitorId);
+      } catch {
+        // 영구 저장이 막히면 현재 세션의 기존 ID를 계속 사용한다.
+      }
+      memoryVisitorId = legacyVisitorId;
+      return legacyVisitorId;
+    }
+  } catch {
+    // 기존 세션 저장소를 읽지 못하면 새 ID를 만든다.
+  }
+
   memoryVisitorId ??= createId();
   try {
     target?.setItem(VISITOR_STORAGE_KEY, memoryVisitorId);
   } catch {
-    // 세션 저장이 막혀도 현재 탭에서는 같은 ID를 유지한다.
+    // 영구 저장이 막혀도 현재 탭에서는 같은 ID를 유지한다.
   }
   return memoryVisitorId;
 }

@@ -6,9 +6,12 @@ import type * as DiaryModel from "./diary-model";
 import type { Family, Message } from "../../../lib/types";
 
 const require = createRequire(import.meta.url);
-const { buildKidDoneRequest, createChatDiaryEntry, parseKidDoneResponse } = require(
-  "./diary-model.ts",
-) as typeof DiaryModel;
+const {
+  buildKidDoneRequest,
+  createChatDiaryEntry,
+  parseKidDoneResponse,
+  selectDiaryMessages,
+} = require("./diary-model.ts") as typeof DiaryModel;
 
 const family: Family = {
   id: "family-1",
@@ -106,5 +109,58 @@ test("검증한 3줄 일기를 종료 날짜의 대화 기록으로 만든다", 
       ref: "kid-finish-message",
       diary: ["첫 줄", "둘째 줄", "셋째 줄"],
     },
+  );
+});
+
+test("일기에는 로컬 당일 대화만 담고 끝 버튼 메시지는 제외한다", () => {
+  const messages: Message[] = [
+    {
+      id: "previous-local-day",
+      familyId: family.id,
+      from: "kid",
+      text: "어제 이야기",
+      createdAt: "2026-10-31T14:59:00.000Z",
+    },
+    {
+      id: "today-message",
+      familyId: family.id,
+      from: "kid",
+      text: "오늘 이야기",
+      createdAt: "2026-10-31T15:01:00.000Z",
+    },
+    {
+      id: "finish-message",
+      familyId: family.id,
+      from: "kid",
+      text: "끝",
+      createdAt: "2026-10-31T16:00:00.000Z",
+    },
+  ];
+
+  assert.deepEqual(
+    selectDiaryMessages(messages, "2026-10-31T16:00:00.000Z", "finish-message", -540).map(
+      (message) => message.id,
+    ),
+    ["today-message"],
+  );
+});
+
+test("다른 말로 대화가 끝났다면 마지막 아이 말도 일기에 남긴다", () => {
+  const finalMessage: Message = {
+    id: "meaningful-finish",
+    familyId: family.id,
+    from: "kid",
+    text: "오늘은 여기까지 이야기할래",
+    createdAt: "2026-11-01T12:00:00.000Z",
+  };
+
+  assert.deepEqual(
+    selectDiaryMessages(
+      [finalMessage],
+      "2026-11-01T12:00:00.000Z",
+      finalMessage.id,
+      -540,
+    ),
+    [finalMessage],
   );
 });

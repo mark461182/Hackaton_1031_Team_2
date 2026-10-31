@@ -19,6 +19,7 @@ import {
   buildKidDoneRequest,
   createChatDiaryEntry,
   parseKidDoneResponse,
+  selectDiaryMessages,
 } from "./diary-model";
 import { EllyStage } from "@/components/elly-stage";
 import { getVisitorId, store } from "@/lib/store";
@@ -161,12 +162,10 @@ export default function KidPage() {
     setDiaryStatus("saving");
     setDiaryRetry({ finishedAt, conversationId });
     try {
-      const day = finishedAt.slice(0, 10);
-      const savedMessages = (await store.getMessages(family.id)).filter(
-        (message) =>
-          message.id !== conversationId &&
-          message.createdAt.slice(0, 10) === day &&
-          message.createdAt <= finishedAt,
+      const savedMessages = selectDiaryMessages(
+        await store.getMessages(family.id),
+        finishedAt,
+        conversationId,
       );
       const diaryResponse = await fetch("/api/kid/done", {
         method: "POST",

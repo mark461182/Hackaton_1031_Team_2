@@ -276,7 +276,7 @@ test("브라우저 저장소가 막혀도 메모리 저장으로 계속 동작�
   assert.deepEqual(again, family);
 });
 
-test("방문자 ID는 브라우저 세션 저장소에서 다시 읽는다", () => {
+test("방문자 ID는 브라우저 영구 저장소에서 다시 읽는다", () => {
   const storage = new FakeStorage();
 
   const first = getVisitorId(storage);
@@ -284,6 +284,17 @@ test("방문자 ID는 브라우저 세션 저장소에서 다시 읽는다", () 
 
   assert.equal(again, first);
   assert.notEqual(first, "");
+});
+
+test("기존 세션 방문자 ID를 영구 저장소로 옮겨 가족 기록 연결을 지킨다", () => {
+  const durableStorage = new FakeStorage();
+  const legacySessionStorage = new FakeStorage();
+  legacySessionStorage.setItem("elly:visitor:v1", "legacy-visitor");
+
+  const migrated = getVisitorId(durableStorage, legacySessionStorage);
+
+  assert.equal(migrated, "legacy-visitor");
+  assert.equal(durableStorage.getItem("elly:visitor:v1"), "legacy-visitor");
 });
 
 test("Supabase 연결 전에는 저장 모드를 memory로 알린다", () => {
@@ -558,6 +569,40 @@ test("다음 날 다시 충분히 대화하면 코인을 한 번 더 받을 수 
   const nextDay = await activeStore.finishConversation(family.id, "2026-11-02T00:10:00.000Z");
 
   assert.deepEqual(nextDay, { status: "awarded", coins: 20, awardedCoins: 10 });
+});
+
+test("한국 자정 경계를 지나면 새 날짜의 대화로 코인을 다시 계산한다", async () => {
+  const activeStore = createMemoryStore({ timezoneOffsetMinutes: -540 });
+  const family = await activeStore.getOrCreateDemoFamily(FAMILY_A_VISITOR);
+  const messageTimes = [
+    "2026-10-31T15:01:00.000Z",
+    "2026-10-31T16:00:00.000Z",
+    "2026-11-01T14:50:00.000Z",
+    "2026-11-01T15:01:00.000Z",
+    "2026-11-01T15:02:00.000Z",
+    "2026-11-01T15:03:00.000Z",
+  ];
+  for (const [index, createdAt] of messageTimes.entries()) {
+    await activeStore.saveMessage({
+      id: `midnight-${index}`,
+      familyId: family.id,
+      from: "kid",
+      text: `자정 경계 말 ${index + 1}`,
+      createdAt,
+    });
+  }
+
+  const beforeMidnight = await activeStore.finishConversation(
+    family.id,
+    "2026-11-01T14:59:00.000Z",
+  );
+  const afterMidnight = await activeStore.finishConversation(
+    family.id,
+    "2026-11-01T15:04:00.000Z",
+  );
+
+  assert.deepEqual(beforeMidnight, { status: "awarded", coins: 10, awardedCoins: 10 });
+  assert.deepEqual(afterMidnight, { status: "awarded", coins: 20, awardedCoins: 10 });
 });
 
 test("가족마다 같은 날 코인을 한 번씩 받을 수 있다", async () => {

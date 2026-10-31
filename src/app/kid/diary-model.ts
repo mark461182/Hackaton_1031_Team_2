@@ -7,6 +7,7 @@ import type {
   KidDoneResponse,
   Message,
 } from "@/lib/types";
+import { toLocalIsoDate } from "../../lib/date.ts";
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
@@ -37,6 +38,21 @@ export function parseKidDoneResponse(value: unknown): KidDoneResponse {
   return value as KidDoneResponse;
 }
 
+export function selectDiaryMessages(
+  messages: Message[],
+  finishedAt: IsoTime,
+  finishingMessageId: Id,
+  timezoneOffsetMinutes?: number,
+): Message[] {
+  const day = toLocalIsoDate(finishedAt, timezoneOffsetMinutes);
+  return messages.filter(
+    (message) =>
+      toLocalIsoDate(message.createdAt, timezoneOffsetMinutes) === day &&
+      message.createdAt <= finishedAt &&
+      !(message.id === finishingMessageId && message.text.trim() === "끝"),
+  );
+}
+
 type CreateChatDiaryEntryInput = {
   familyId: Id;
   conversationId: Id;
@@ -55,7 +71,7 @@ export function createChatDiaryEntry({
   return {
     id: nextId(),
     familyId,
-    date: finishedAt.slice(0, 10),
+    date: toLocalIsoDate(finishedAt),
     type: "chat",
     ref: conversationId,
     diary,

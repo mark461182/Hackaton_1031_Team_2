@@ -38,10 +38,10 @@
 - Consumes: `Entry` from `src/lib/types.ts`
 - Produces: `saveEntry(entry: Entry): Promise<void>`, `getEntries(familyId: Id): Promise<Entry[]>`
 
-- [ ] **Step 1: 저장·가족 격리·동일 날짜 덮어쓰기·브라우저 복원 실패 테스트 작성**
-- [ ] **Step 2: `node --experimental-strip-types --test 'src/**/*.test.mts'`를 실행해 새 테스트가 메서드 부재로 실패하는지 확인**
-- [ ] **Step 3: persisted state에 `entries`를 선택 필드로 추가하고 두 store 메서드를 최소 구현**
-- [ ] **Step 4: `node --experimental-strip-types --test 'src/**/*.test.mts'`를 실행해 통과 확인**
+- [x] **Step 1: 저장·가족 격리·동일 날짜 덮어쓰기·브라우저 복원 실패 테스트 작성**
+- [x] **Step 2: `node --experimental-strip-types --test 'src/**/*.test.mts'`를 실행해 새 테스트가 메서드 부재로 실패하는지 확인**
+- [x] **Step 3: persisted state에 `entries`를 선택 필드로 추가하고 두 store 메서드를 최소 구현**
+- [x] **Step 4: `node --experimental-strip-types --test 'src/**/*.test.mts'`를 실행해 통과 확인**
 
 ### Task 2: 대화 종료 일기 변환과 저장 연결
 
@@ -54,10 +54,10 @@
 - Consumes: `KidDoneRequest`, `KidDoneResponse`, `Entry`, `Message`, `Family`, `store.saveEntry`
 - Produces: `buildKidDoneRequest`, `parseKidDoneResponse`, `createChatDiaryEntry`
 
-- [ ] **Step 1: 요청의 제외 표시 보존, 정확히 3개의 비어 있지 않은 줄 검증, Entry 변환 실패 테스트 작성**
-- [ ] **Step 2: `node --experimental-strip-types --test 'src/**/*.test.mts'`를 실행해 모듈 부재로 실패하는지 확인**
-- [ ] **Step 3: 세 순수 함수를 구현하고 `/kid`의 종료 응답 뒤 API 호출·store 저장·달력 링크를 연결**
-- [ ] **Step 4: `node --experimental-strip-types --test 'src/**/*.test.mts'`를 실행해 통과 확인**
+- [x] **Step 1: 요청의 제외 표시 보존, 정확히 3개의 비어 있지 않은 줄 검증, Entry 변환 실패 테스트 작성**
+- [x] **Step 2: `node --experimental-strip-types --test 'src/**/*.test.mts'`를 실행해 모듈 부재로 실패하는지 확인**
+- [x] **Step 3: 세 순수 함수를 구현하고 `/kid`의 종료 응답 뒤 API 호출·store 저장·달력 링크를 연결**
+- [x] **Step 4: `node --experimental-strip-types --test 'src/**/*.test.mts'`를 실행해 통과 확인**
 
 ### Task 3: 아이 기록 달력
 
@@ -70,8 +70,8 @@
 - Consumes: `store.getEntries(familyId)`, `getVisitorId()`, `Entry`
 - Produces: `buildCalendarMonth(year: number, monthIndex: number, entries: Entry[])`
 
-- [ ] **Step 1: 월 앞뒤 빈칸, 날짜별 chat 기록, 기록 없는 달의 실패 테스트 작성**
-- [ ] **Step 2: `node --experimental-strip-types --test 'src/**/*.test.mts'`를 실행해 모듈 부재로 실패하는지 확인**
-- [ ] **Step 3: 달력 모델과 파란 점·선택 날짜 3줄 일기·빈 상태를 갖는 모바일 화면 구현**
-- [ ] **Step 4: `node --experimental-strip-types --test 'src/**/*.test.mts'`, `npm run lint`, `npm run build`를 실행해 전체 검증**
-- [ ] **Step 5: `/kid` 종료 흐름과 `/kid/calendar`를 모바일·태블릿·데스크톱에서 브라우저 확인**
+- [x] **Step 1: 월 앞뒤 빈칸, 날짜별 chat 기록, 기록 없는 달의 실패 테스트 작성**
+- [x] **Step 2: `node --experimental-strip-types --test 'src/**/*.test.mts'`를 실행해 모듈 부재로 실패하는지 확인**
+- [x] **Step 3: 달력 모델과 파란 점·선택 날짜 3줄 일기·빈 상태를 갖는 모바일 화면 구현**
+- [x] **Step 4: `node --experimental-strip-types --test 'src/**/*.test.mts'`, `npm run lint`, `npm run build`를 실행해 전체 검증**
+- [x] **Step 5: `/kid` 종료 흐름과 `/kid/calendar`를 모바일·태블릿·데스크톱에서 브라우저 확인**
