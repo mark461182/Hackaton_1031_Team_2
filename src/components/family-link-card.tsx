@@ -113,7 +113,7 @@ export function FamilyLinkCard({ kidName }: { kidName: string }) {
           아이 이름을 적고 링크를 만들어 아이 폰으로 보내 주세요. 그 링크로 들어온 폰만 우리 가족 기록을 함께 써요.
         </p>
         <label className="mt-4 block text-[13px] text-ink-sage-body" htmlFor="kid-name-input">
-          아이 이름 (Elly가 부를 이름)
+          아이 이름 (성은 빼고, Elly가 부를 이름만)
         </label>
         <input
           id="kid-name-input"
@@ -121,7 +121,7 @@ export function FamilyLinkCard({ kidName }: { kidName: string }) {
           onChange={(event) => setNameInput(event.target.value)}
           maxLength={12}
           autoComplete="off"
-          placeholder="예: 준우"
+          placeholder="예: 하린 (김하린 X)"
           className="mt-1 min-h-11 w-full rounded-2xl border border-line-input bg-surface px-4 text-[16px] text-ink"
           data-ui="P-link-name"
         />
