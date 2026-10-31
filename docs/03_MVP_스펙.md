@@ -98,7 +98,7 @@ await speak(reply, { voiceURI, rate, pitch });   // 값은 /voice-lab에서 고�
 | --- | --- |
 | STT | 후보 5개 받기 → 초저 대화 단어(학교·짝꿍·급식…)로 다시 순위 → 화면 선택지와 비슷하면 그 선택지로 맞춤 → `/voice-lab`에서 글자 오류율(CER) 측정 (엔진 그대로 vs 보정 후) |
 | TTS | 기기의 한국어 목소리 중 자연스러운 것 자동 선택, 이모지·ㅋㅋ·ㅠㅠ·괄호·말줄임표 정리, 문장 단위로 나눠 읽기 (크롬은 긴 문장을 읽다 끊김), 속도·높낮이 조절 |
-| 다음 (Bedrock 붙인 뒤) | 후보 여러 개 + 직전 코끼리 질문을 LLM에 같이 넘겨 문맥으로 고르게 하기 |
+| 다음 | 후보 여러 개 + 직전 코끼리 질문을 LLM에 같이 넘겨 문맥으로 고르게 하기 |
 
 **코끼리 목소리 = 타입캐스트 아동 목소리 "하율" (`/api/tts`)**
 | 항목 | 동작 |
@@ -168,7 +168,7 @@ Report   { id, familyId, week, summary, nextQuestions }               // 주간 
 | POST | `/api/tts` | 글자 → 코끼리 목소리 (구현됨, 위 "음성") |
 | GET | `/api/parent/report` | 주간 리포트 + 다음 주 질문 추천 (정적 화면이면 안 만들어도 됨) |
 
-- LLM: **AWS Bedrock** (05, 11/1). 모델·키 이름은 건준이 `.env.example`에 적는다
+- LLM: ~~AWS Bedrock~~ → **래블업 토큰팩토리** (OpenAI 호환, 05). 키 이름은 `.env.example`
 - ~~데이터만 다루는 API (share·photo·gift·feed·book/order·calendar)~~ → 아래 저장 함수로 옮김 (11/1)
 
 ## 저장 함수 (초안) — 성준·재모. `src/lib/store.ts`
