@@ -49,4 +49,4 @@
 - [x] **Step 1: 전체 Node 테스트 실행**
 - [x] **Step 2: `npm run lint` 실행**
 - [x] **Step 3: `npm run build` 실행**
-- [ ] **Step 4: `origin/main`으로 푸시하고 원격 커밋 확인**
+- [x] **Step 4: `origin/main`으로 푸시하고 원격 커밋 확인**
