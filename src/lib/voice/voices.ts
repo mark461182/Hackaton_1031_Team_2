@@ -1,10 +1,14 @@
 // 타입캐스트 아동 목소리 (GET /v2/voices?age=child 중 한국어 이름). "Hajun"은 방송 목소리와 이름이 같아 제외
+
+/** 코끼리 기본 목소리 = 하율 (팀 결정 11/1) */
+export const DEFAULT_KID_VOICE_ID = "tc_65fbe54e2668bc4ddbd8b2a6";
+
 export const TYPECAST_KID_VOICES = [
+  { id: DEFAULT_KID_VOICE_ID, name: "하율 (여) — 기본" },
   { id: "tc_699d27b557c86e3f4249c051", name: "옥지 (여)" },
   { id: "tc_699d27d2f197c861791ac91b", name: "부꾸 (여)" },
   { id: "tc_699d27ef573c4c4d91aa411d", name: "어굴 (여)" },
   { id: "tc_6699eb5749dfac016c29445c", name: "수아 (여)" },
-  { id: "tc_65fbe54e2668bc4ddbd8b2a6", name: "하율 (여)" },
   { id: "tc_619d7f42c14fccfc4953e159", name: "베리 (여)" },
   { id: "tc_60db35d96fdc060afd157d32", name: "하영 (여)" },
   { id: "tc_609a8f4362c4bdb3363bbfad", name: "채아 (여)" },
