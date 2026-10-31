@@ -746,3 +746,65 @@ test("브라우저 저장소를 다시 열어도 달력 일기를 복원한다",
 
   assert.deepEqual(await reopenedStore.getEntries(family.id), [entry]);
 });
+
+test("아이 이름을 바꾸면 가족 이름도 함께 바뀌고 빈 이름은 무시한다", async () => {
+  const store = createMemoryStore();
+  const family = await store.getOrCreateDemoFamily(FAMILY_A_VISITOR);
+
+  const renamed = await store.setKidName(family.id, "  민준  ");
+  assert.equal(renamed.kidName, "민준");
+  assert.equal(renamed.name, "민준네");
+  assert.deepEqual(await store.getOrCreateDemoFamily(FAMILY_A_VISITOR), renamed);
+
+  const unchanged = await store.setKidName(family.id, "   ");
+  assert.equal(unchanged.kidName, "민준");
+});
+
+test("코인을 쓰면 줄고, 가진 것보다 많이 쓰거나 잘못된 수는 거절한다", async () => {
+  const store = createMemoryStore();
+  const family = await store.getOrCreateDemoFamily(FAMILY_A_VISITOR);
+  await assert.rejects(store.spendCoins(family.id, 10), /모자라/);
+  const kidMessage = (id: string, createdAt: string): Message => ({ id, familyId: family.id, from: "kid", text: "놀았어", createdAt });
+  for (const [i, at] of ["2026-11-01T00:00:00.000Z", "2026-11-01T00:01:00.000Z", "2026-11-01T00:02:00.000Z"].entries()) {
+    await store.saveMessage(kidMessage(`kid-${i}`, at));
+  }
+  const finished = await store.finishConversation(family.id, "2026-11-01T00:03:00.000Z");
+  assert.equal(finished.coins, 10);
+
+  const after = await store.spendCoins(family.id, 7);
+  assert.equal(after.coins, 3);
+  await assert.rejects(store.spendCoins(family.id, 0), /올바르지/);
+  await assert.rejects(store.spendCoins(family.id, 4), /모자라/);
+});
+
+test("맡긴 질문에 답했지만 전할 답이 없으면 내용 없이 '물어봤어요' 카드만, 위험 답이면 알림만", async () => {
+  const store = createMemoryStore();
+  const family = await store.getOrCreateDemoFamily(FAMILY_A_VISITOR);
+  const question = (id: string): Question => ({
+    id,
+    familyId: family.id,
+    original: "친구랑 잘 지내?",
+    rewritten: "요즘 제일 재밌는 친구는 누구야?",
+    createdAt: "2026-11-01T00:00:00.000Z",
+  });
+  await store.saveQuestion(question("q-quiet"));
+  await store.commitKidTurn({
+    kidMessage: { id: "kid-quiet", familyId: family.id, from: "kid", text: "엄마한테 말하지 마", createdAt: "2026-11-01T00:01:00.000Z", questionId: "q-quiet", keepFromParent: "dont_tell" },
+    kokkiriMessage: { id: "elly-quiet", familyId: family.id, from: "kokkiri", text: "알겠어", createdAt: "2026-11-01T00:01:01.000Z" },
+    answeredQuestionId: "q-quiet",
+    changedAt: "2026-11-01T00:01:02.000Z",
+  });
+  const feed = await store.getParentFeed(family.id);
+  assert.deepEqual(feed.map((item) => item.kind), ["quiet"]);
+  assert.equal(JSON.stringify(feed).includes("엄마한테 말하지 마"), false);
+
+  await store.saveQuestion(question("q-risk"));
+  await store.commitKidTurn({
+    kidMessage: { id: "kid-risk", familyId: family.id, from: "kid", text: "짝꿍이 때려", createdAt: "2026-11-01T00:02:00.000Z", questionId: "q-risk", category: "risk" },
+    kokkiriMessage: { id: "elly-risk", familyId: family.id, from: "kokkiri", text: "말해 줘서 고마워", createdAt: "2026-11-01T00:02:01.000Z" },
+    answeredQuestionId: "q-risk",
+    changedAt: "2026-11-01T00:02:02.000Z",
+    alert: { id: "alert-risk", familyId: family.id, quote: "짝꿍이 때려", situation: "친구 사이 다툼으로 보여요", guide: "천천히 들어 주세요", riskType: "violence", createdAt: "2026-11-01T00:02:02.000Z" },
+  });
+  assert.deepEqual((await store.getParentFeed(family.id)).map((item) => item.kind), ["alert", "quiet"]);
+});

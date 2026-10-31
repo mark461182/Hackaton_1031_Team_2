@@ -22,13 +22,21 @@ import {
   parseKidDoneResponse,
   selectDiaryMessages,
 } from "./diary-model";
-import { EllyStage } from "@/components/elly-stage";
+import { KokkiriStage } from "@/components/kokkiri/KokkiriStage";
+import { KokkiriLipSync } from "@/components/kokkiri/kokkiri-lipsync";
+import type { KokkiriPlayer } from "@/components/kokkiri/kokkiri-player";
+import { LinkGate } from "@/components/link-gate";
+import { Button } from "@/components/ui/Button";
+import { TopBar } from "@/components/ui/TopBar";
 import { getVisitorId, store } from "@/lib/store";
 import type { ApiError, Family, Message } from "@/lib/types";
 import {
   FIXED_LINES,
   KID_CONTEXT_WORDS,
   createPushToTalk,
+  externalOpenUrl,
+  getSpeechLevel,
+  inAppBrowser,
   isSttSupported,
   pickTranscript,
   speak,
@@ -39,10 +47,21 @@ import {
 } from "@/lib/voice";
 
 const GREETING = FIXED_LINES.find((line) => line.file === "greet");
+const SHARE_YES = FIXED_LINES.find((line) => line.file === "share-yes")?.text ?? "좋아, 고마워!";
+const SHARE_NO = FIXED_LINES.find((line) => line.file === "share-no")?.text ?? "알겠어. 말하고 싶을 때 말해 줘.";
+const END_WORD = "끝"; // [대화 마치기]가 보내는 말. 말풍선으로는 보여 주지 않는다
 const newId = () => globalThis.crypto.randomUUID();
 const now = () => new Date().toISOString();
 
 export default function KidPage() {
+  return (
+    <LinkGate role="kid">
+      <KidChatScreen />
+    </LinkGate>
+  );
+}
+
+function KidChatScreen() {
   const [family, setFamily] = useState<Family | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [choices, setChoices] = useState<string[]>([]);
@@ -55,11 +74,16 @@ export default function KidPage() {
   const [conversationFinished, setConversationFinished] = useState(false);
   const [diaryStatus, setDiaryStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [diaryRetry, setDiaryRetry] = useState<{ finishedAt: string; conversationId: string } | null>(null);
+  const [nameDraft, setNameDraft] = useState("");
+  const [inApp, setInApp] = useState<string | null>(null);
+  const [panelHeight, setPanelHeight] = useState(240);
   const pushToTalk = useRef<PushToTalk | null>(null);
   const activePointerId = useRef<number | null>(null);
   const actionGate = useRef(createActionGate());
   const speechRun = useRef(0);
-  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const kk = useRef<KokkiriPlayer | null>(null);
+  const lip = useRef<KokkiriLipSync | null>(null); // 입 그리기 (도하 09_lipsync). 안 되는 브라우저에선 스스로 꺼져 원래 말하기 영상
+  const panelRef = useRef<HTMLDivElement | null>(null);
 
   const busy = screenState === "thinking";
   const started = messages.length > 0;
@@ -80,11 +104,12 @@ export default function KidPage() {
         if (!active) return;
         setFamily(loadedFamily);
         setSttSupported(isSttSupported());
+        setInApp(inAppBrowser());
         setScreenState("ready");
         unsubscribe = store.subscribe(() => void refresh());
       } catch {
         if (active) {
-          setError("대화를 불러오지 못했어요. 새로고침해 주세요.");
+          setError("대화를 불러오지 못했어. 새로고침해 줘.");
           setScreenState("ready");
         }
       }
@@ -95,12 +120,31 @@ export default function KidPage() {
       active = false;
       unsubscribe();
       stopSpeaking();
+      lip.current?.destroy();
+      lip.current = null;
     };
   }, []);
 
+  // 코끼리는 아래 버튼판 바로 위에 선다 (버튼판 높이가 바뀌면 발 닿는 높이도 따라간다)
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, screenState]);
+    const panel = panelRef.current;
+    if (!panel || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => setPanelHeight(Math.round(panel.getBoundingClientRect().height)));
+    observer.observe(panel);
+    return () => observer.disconnect();
+  }, []);
+
+  // 화면 상태 → 코끼리 상태. 말하기는 소리 알림(onChunkStart 등)이 움직인다
+  useEffect(() => {
+    const player = kk.current;
+    if (!player) return;
+    if (screenState === "listening") player.setState("listening");
+    else if (screenState === "thinking" || screenState === "loading") player.setState("thinking");
+    else if (screenState === "ready") {
+      if (player.state === "speaking") player.speakEnd();
+      else player.setState("idle");
+    }
+  }, [screenState]);
 
   function interruptSpeech() {
     speechRun.current += 1;
@@ -114,7 +158,12 @@ export default function KidPage() {
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       await Promise.race([
-        speak(text),
+        speak(text, {
+          // 립싱크가 있으면 입을 소리 크기에 맞춰 그리고(kk.speak는 쓰지 않음), 없으면 말하기 영상
+          onChunkStart: (seconds) => (lip.current ? lip.current.start() : kk.current?.speak(seconds)),
+          onBrowserStart: () => (lip.current ? lip.current.start({ level: false }) : kk.current?.speakStart()),
+          onBrowserEnd: () => (lip.current ? lip.current.end() : kk.current?.speakEnd()),
+        }).finally(() => lip.current?.end()),
         new Promise<void>((resolve) => {
           timer = setTimeout(() => {
             stopSpeaking();
@@ -133,12 +182,14 @@ export default function KidPage() {
   async function startConversation() {
     if (!family || !GREETING || !actionGate.current.tryEnter()) return;
     unlockTts();
+    kk.current?.unlock();
     setError("");
     setFinishNotice(null);
     setConversationFinished(false);
     setDiaryStatus("idle");
     setDiaryRetry(null);
     try {
+      if (nameDraft.trim()) setFamily(await store.setKidName(family.id, nameDraft));
       const greeting: Message = {
         id: newId(),
         familyId: family.id,
@@ -149,7 +200,7 @@ export default function KidPage() {
       await store.saveMessage(greeting);
       void playSpeech(GREETING.text);
     } catch {
-      setError("대화를 시작하지 못했어요. 다시 눌러 주세요.");
+      setError("대화를 시작하지 못했어. 다시 눌러 줘.");
       setScreenState("ready");
     } finally {
       actionGate.current.leave();
@@ -192,7 +243,7 @@ export default function KidPage() {
     }
   }
 
-  async function sendMessage(text: string, confirmed: boolean, allowWhileListening = false) {
+  async function sendMessage(text: string, confirmed: boolean, allowWhileListening = false, viaChoice = false) {
     const clean = text.trim();
     if (
       !family ||
@@ -217,6 +268,7 @@ export default function KidPage() {
         text: clean,
         createdAt: now(),
         confirmed,
+        ...(viaChoice ? { viaChoice: true } : {}),
       };
       setMessages([...history, kidMessage]);
       const request = buildKidChatRequest(family, history, pendingQuestion, clean);
@@ -276,7 +328,7 @@ export default function KidPage() {
       );
       setDraft(retainedComposer.draft || clean);
       setChoices(retainedComposer.choices);
-      setError("잠시 연결이 안 됐어요. 작성한 말을 그대로 두었어요. 다시 보내 주세요.");
+      setError("잠깐 연결이 안 됐어. 쓴 말은 그대로 뒀어. 다시 보내 줘.");
       setScreenState("ready");
     } finally {
       actionGate.current.leave();
@@ -286,25 +338,31 @@ export default function KidPage() {
   }
 
   async function choose(choice: string) {
+    kk.current?.unlock();
     if (pendingShareId && (choice === "좋아" || choice === "싫어")) {
       if (!family || !actionGate.current.tryEnter()) return;
       try {
         await store.resolveShare(family.id, pendingShareId, choice === "좋아" ? "accepted" : "declined");
         setPendingShareId(null);
         setChoices([]);
+        // 고른 뒤에도 Elly가 한마디 한다 (부모에게 간다는 말은 하지 않는다)
+        const answer = choice === "좋아" ? SHARE_YES : SHARE_NO;
+        await store.saveMessage({ id: newId(), familyId: family.id, from: "kokkiri", text: answer, createdAt: now() });
+        void playSpeech(answer);
       } catch {
-        setError("선택을 저장하지 못했어요. 다시 눌러 주세요.");
+        setError("고른 걸 저장하지 못했어. 다시 눌러 줘.");
       } finally {
         actionGate.current.leave();
       }
       return;
     }
-    await sendMessage(choice, false);
+    await sendMessage(choice, false, false, true);
   }
 
   function startTalk(event: ReactPointerEvent<HTMLButtonElement>) {
     if (busy || !sttSupported || pushToTalk.current) return;
     unlockTts();
+    kk.current?.unlock();
     interruptSpeech();
     setError("");
     try {
@@ -315,7 +373,7 @@ export default function KidPage() {
       ptt.start();
       setScreenState("listening");
     } catch {
-      setError("이 브라우저에서는 마이크를 쓸 수 없어요. 글자로 입력해 주세요.");
+      setError("이 브라우저에서는 마이크를 쓸 수 없어. 글자로 써 줘.");
       setScreenState("ready");
     }
   }
@@ -336,13 +394,13 @@ export default function KidPage() {
         pickTranscript(alternatives, choices, KID_CONTEXT_WORDS),
       );
       if (!intent) {
-        setError("잘 들리지 않았어요. 다시 말하거나 글자로 입력해 주세요.");
+        setError("잘 안 들렸어. 다시 말하거나 글자로 써 줘.");
         return;
       }
       sent = true;
       await sendMessage(intent.text, intent.confirmed, true);
     } catch {
-      setError("음성을 글자로 바꾸지 못했어요. 다시 말하거나 글자로 입력해 주세요.");
+      setError("말을 글자로 바꾸지 못했어. 다시 말하거나 글자로 써 줘.");
     } finally {
       if (!sent) setScreenState("ready");
     }
@@ -350,118 +408,166 @@ export default function KidPage() {
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    kk.current?.unlock();
     void sendMessage(draft, false);
   }
 
-  const stage = getKidStagePresentation(screenState, started);
+  const stage = getKidStagePresentation(screenState, started, nameDraft.trim() || family?.kidName);
   const voiceView = getKidVoiceViewPresentation(screenState, sttSupported, "");
   const voiceControl = voiceView.control;
-  const recentMessages = messages.slice(-2);
+  const recentMessages = messages.filter((message) => message.text.trim() !== END_WORD).slice(-2);
+  const openUrl = inApp && typeof window !== "undefined" ? externalOpenUrl(window.location.href) : null;
 
   return (
-    <main className="min-h-dvh bg-[#F7F4EC] text-[#383D37]">
-      <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col overflow-x-hidden bg-[#F7F4EC]">
-        <header className="grid min-h-[52px] grid-cols-[64px_1fr_80px] items-center px-5">
-          <Link
-            href="/"
-            className="flex min-h-11 items-center text-[15px] text-[#5E655C]"
-            aria-label="첫 화면으로 돌아가기"
-          >
-            ←
-          </Link>
-          <h1 className="font-friendly text-center text-[18px]">Elly</h1>
-          <span
-            className="flex min-h-11 items-center justify-end text-[13px] tabular-nums text-[#5E655C]"
-            aria-label={`보유 코인 ${family?.coins ?? 0}개`}
-          >
-            코인 {family?.coins ?? 0}
-          </span>
-        </header>
+    <main className="min-h-dvh bg-kid-sky text-kid-ink">
+      <KokkiriStage
+        onReady={(player) => {
+          kk.current = player;
+          lip.current?.destroy();
+          lip.current = new KokkiriLipSync(player, { base: "/kokkiri/", dataSet: "real", getLevel: getSpeechLevel });
+        }}
+        className="mx-auto h-dvh w-full max-w-md"
+        style={{ "--kk-ground": `${panelHeight + 4}px`, "--kk-size": "76%" } as React.CSSProperties}
+      >
+        <TopBar
+          columns="wide"
+          className="px-4 pt-[env(safe-area-inset-top)]"
+          left={
+            <Link
+              href="/"
+              className="flex min-h-11 items-center"
+              aria-label="첫 화면으로 돌아가기"
+              data-ui="K-back"
+            >
+              <span className="rounded-full bg-surface/85 px-3 py-1 text-[15px]">←</span>
+            </Link>
+          }
+          title={<h1 className="font-friendly text-center text-[18px] text-kid-ink">Elly</h1>}
+          right={
+            <Link
+              href="/kid/coins"
+              className="flex min-h-11 items-center justify-end"
+              aria-label={`내 코인 ${family?.coins ?? 0}개, 기프티콘 고르기`}
+              data-ui="K-coins"
+            >
+              <span className="rounded-full bg-surface/85 px-3 py-1 text-[13px] tabular-nums">코인 {family?.coins ?? 0} ›</span>
+            </Link>
+          }
+        />
 
-        <section className="flex min-h-0 flex-1 flex-col px-5 pb-3" aria-live="polite">
-          <EllyStage
-            asset={stage.asset}
-            compact={started || screenState === "loading"}
-            priority
-            status={stage.status}
-          >
-            {started && recentMessages.length > 0 ? (
-              <div className="mt-3 grid w-full gap-2 text-left">
-                {recentMessages.map((message) => (
-                  <p
-                    className={`font-friendly max-w-[88%] rounded-[20px] px-4 py-3 text-[16px] leading-6 ${
-                      message.from === "kid"
-                        ? "ml-auto rounded-br-md bg-[#DCE8D8] text-[#383D37]"
-                        : "rounded-bl-md bg-white text-[#383D37]"
-                    }`}
-                    key={`${message.familyId}:${message.id}`}
-                  >
-                    {message.text}
-                  </p>
-                ))}
-              </div>
-            ) : null}
-          </EllyStage>
+        {inApp ? (
+          <div className="mx-4 mt-1 rounded-card bg-surface/90 px-4 py-3 text-[14px] leading-5" role="note">
+            <p>{inApp} 안에서는 마이크가 안 될 수 있어. 글자로 쓰거나 크롬·사파리로 열어 줘.</p>
+            {openUrl ? (
+              <a href={openUrl} className="font-friendly mt-2 inline-block rounded-full bg-kid-accent px-4 py-2 text-on-sage" data-ui="K-open-browser">
+                브라우저로 열기
+              </a>
+            ) : (
+              <p className="mt-1 text-[12px] text-ink-muted">오른쪽 위 메뉴 → &lsquo;Safari로 열기&rsquo;</p>
+            )}
+          </div>
+        ) : null}
 
-          {screenState === "loading" ? (
-            <p className="pb-5 text-center text-[14px] text-[#5E655C]">대화를 불러오고 있어요.</p>
-          ) : null}
+        <section className="flex flex-col gap-2 px-4 pt-2" aria-live="polite">
+          {recentMessages.map((message) => (
+            <p
+              className={`font-friendly max-w-[86%] rounded-card px-4 py-3 text-[16px] leading-6 shadow-sm ${
+                message.from === "kid"
+                  ? "ml-auto rounded-br-md bg-kid-bubble-me"
+                  : "rounded-bl-md bg-surface/95"
+              }`}
+              key={`${message.familyId}:${message.id}`}
+            >
+              {message.text}
+            </p>
+          ))}
+        </section>
+
+        <div
+          ref={panelRef}
+          className="mt-auto rounded-t-[28px] bg-surface/85 px-4 pt-3 pb-[max(14px,env(safe-area-inset-bottom))] backdrop-blur-md"
+        >
+          <p className="font-friendly mb-2 text-center text-[16px]" role="status">
+            {screenState === "loading" ? "대화를 불러오고 있어" : conversationFinished ? "오늘 이야기 고마워!" : stage.status}
+          </p>
 
           {error ? (
-            <p className="mb-2 rounded-2xl bg-[#F9E3DF] px-4 py-3 text-[14px] leading-5 text-[#873B32]" role="alert">
+            <p className="mb-2 rounded-2xl bg-danger-bg px-4 py-3 text-[14px] leading-5 text-danger-ink" role="alert">
               {error}
             </p>
           ) : null}
 
           {!started && screenState !== "loading" ? (
-            <div className="pb-[max(20px,env(safe-area-inset-bottom))]">
-              <p className="mx-auto mb-4 max-w-[30ch] text-center text-[15px] leading-6 text-[#5E655C]">
-                버튼을 누르면 Elly가 먼저 소리로 인사해요.
-              </p>
-              <button
-                type="button"
+            <div className="grid gap-2">
+              <label className="sr-only" htmlFor="kid-name">
+                내 이름
+              </label>
+              <input
+                id="kid-name"
+                value={nameDraft}
+                onChange={(event) => setNameDraft(event.target.value)}
+                maxLength={12}
+                autoComplete="off"
+                placeholder={family?.kidName ? `이름 (지금은 ${family.kidName})` : "이름"}
+                data-ui="K-name"
+                className="font-friendly min-h-12 min-w-0 rounded-full border border-line-input bg-surface px-5 text-center text-[16px] text-kid-ink"
+              />
+              <Button
+                variant="kid"
+                size="xl"
                 onClick={() => void startConversation()}
                 disabled={!family || busy}
-                className="font-friendly min-h-[64px] w-full rounded-2xl bg-[#4F6F59] px-5 text-[18px] text-white transition-transform active:scale-[0.99] disabled:bg-[#E8E6DF] disabled:text-[#565B55]"
+                className="w-full px-5 text-[18px] transition-transform active:scale-[0.99] disabled:opacity-60"
+                data-ui="K-start"
               >
                 이야기 시작
-              </button>
+              </Button>
+              <p className="text-center text-[13px] text-ink-muted">누르면 Elly가 먼저 소리로 인사해.</p>
             </div>
           ) : null}
 
           {started ? (
-            <div className="mt-auto pb-[max(12px,env(safe-area-inset-bottom))]">
+            <div className="grid gap-2">
               {finishNotice ? (
                 <div
-                  className={`mb-2 rounded-[20px] px-4 py-4 ${
-                    finishNotice.tone === "success" ? "bg-[#DCE8D8]" : "bg-white"
-                  }`}
+                  className={`rounded-card px-4 py-3 ${finishNotice.tone === "success" ? "bg-kid-bubble-me" : "bg-surface"}`}
                   role="status"
                 >
                   <p className="font-friendly text-[16px] leading-6">{finishNotice.text}</p>
-                  <p className="mt-1 text-[13px] tabular-nums text-[#5E655C]">
-                    지금 {finishNotice.coins}코인
-                  </p>
+                  <p className="mt-1 text-[13px] tabular-nums text-ink-muted">지금 {finishNotice.coins}코인</p>
                   {diaryStatus === "saving" ? (
-                    <p className="mt-3 text-[14px] text-[#5E655C]">오늘 기록을 만들고 있어요.</p>
+                    <p className="mt-2 text-[14px] text-ink-muted">오늘 기록을 만들고 있어.</p>
                   ) : null}
-                  {diaryStatus === "saved" ? (
-                    <Link
-                      href="/kid/calendar"
-                      className="font-friendly mt-3 flex min-h-11 items-center justify-center rounded-2xl bg-white px-4 text-[15px] text-[#383D37]"
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {diaryStatus === "saved" ? (
+                      <Button
+                        href="/kid/calendar"
+                        variant="kid-soft"
+                        size="xs"
+                        className="border border-line-input px-4 text-[15px]"
+                        data-ui="K-records"
+                      >
+                        내 기록 보기
+                      </Button>
+                    ) : null}
+                    <Button
+                      href="/kid/coins"
+                      variant="kid-soft"
+                      size="xs"
+                      className="border border-line-input px-4 text-[15px]"
+                      data-ui="K-shop"
                     >
-                      내 기록 보기
-                    </Link>
-                  ) : null}
+                      기프티콘 고르기
+                    </Button>
+                  </div>
                   {diaryStatus === "error" && diaryRetry ? (
-                    <div className="mt-3 rounded-2xl bg-[#F9E3DF] p-3">
-                      <p className="text-[14px] leading-5 text-[#873B32]">
-                        오늘 기록만 저장하지 못했어요. 다시 눌러 주세요.
-                      </p>
+                    <div className="mt-2 rounded-2xl bg-danger-bg p-3">
+                      <p className="text-[14px] leading-5 text-danger-ink">오늘 기록만 저장하지 못했어. 다시 눌러 줘.</p>
                       <button
                         type="button"
                         onClick={() => void saveConversationDiary(diaryRetry.finishedAt, diaryRetry.conversationId)}
-                        className="font-friendly mt-2 min-h-11 w-full rounded-xl bg-white px-3 text-[14px] text-[#383D37]"
+                        className="font-friendly mt-2 min-h-11 w-full rounded-full bg-surface px-3 text-[14px] text-kid-ink"
+                        data-ui="K-retry"
                       >
                         기록 다시 저장
                       </button>
@@ -471,43 +577,46 @@ export default function KidPage() {
               ) : null}
 
               {choices.length > 0 && !conversationFinished ? (
-                <div className="mb-2 grid grid-cols-2 gap-2">
-                  {choices.map((choice) => (
-                    <button
+                <div className="flex flex-wrap justify-center gap-2">
+                  {choices.map((choice, index) => (
+                    <Button
                       key={choice}
-                      type="button"
+                      variant="kid-soft"
+                      size="xs"
                       onClick={() => void choose(choice)}
                       disabled={busy}
-                      className="font-friendly min-h-12 rounded-2xl bg-[#DCE8D8] px-3 text-[15px] text-[#383D37] disabled:opacity-50"
+                      className="border border-line-input px-4 text-[15px] disabled:opacity-50"
+                      data-ui={
+                        pendingShareId && choice === "좋아"
+                          ? "K-share-yes"
+                          : pendingShareId && choice === "싫어"
+                            ? "K-share-no"
+                            : `K-choice-${index + 1}`
+                      }
                     >
                       {choice}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               ) : null}
 
               {!conversationFinished ? (
-                <button
-                  type="button"
-                  disabled={voiceControl.disabled}
-                  onPointerDown={startTalk}
-                  onPointerUp={(event) => void endTalk(event)}
-                  onPointerCancel={(event) => void endTalk(event)}
-                  onLostPointerCapture={(event) => void endTalk(event)}
-                  onContextMenu={(event) => event.preventDefault()}
-                  className={`font-friendly min-h-[64px] w-full touch-none select-none rounded-2xl px-5 text-[17px] transition-transform active:scale-[0.99] ${
-                    screenState === "listening"
-                      ? "bg-[#728F7A] text-[#111614]"
-                      : "bg-[#4F6F59] text-white"
-                  } disabled:bg-[#E8E6DF] disabled:text-[#565B55]`}
-                >
-                  {voiceControl.label}
-                </button>
-              ) : null}
-
-              {!conversationFinished ? (
                 <>
-                  <form onSubmit={submit} className="mt-2 grid grid-cols-[1fr_auto] gap-2">
+                  <Button
+                    variant={screenState === "listening" ? "kid-listening" : "kid"}
+                    size="xl"
+                    disabled={voiceControl.disabled}
+                    onPointerDown={startTalk}
+                    onPointerUp={(event) => void endTalk(event)}
+                    onPointerCancel={(event) => void endTalk(event)}
+                    onLostPointerCapture={(event) => void endTalk(event)}
+                    onContextMenu={(event) => event.preventDefault()}
+                    className="w-full touch-none select-none px-5 text-[17px] transition-transform [-webkit-touch-callout:none] active:scale-[0.99] disabled:opacity-60"
+                    data-ui="K-talk"
+                  >
+                    {voiceControl.label}
+                  </Button>
+                  <form onSubmit={submit} className="grid grid-cols-[1fr_auto] gap-2">
                     <label className="sr-only" htmlFor="kid-message">
                       Elly에게 할 말
                     </label>
@@ -517,43 +626,50 @@ export default function KidPage() {
                       onChange={(event) => setDraft(event.target.value)}
                       disabled={busy}
                       maxLength={1000}
-                      placeholder="키보드로 말하기"
-                      className="min-h-12 min-w-0 rounded-2xl border border-[#D8D9D1] bg-white px-4 text-[15px] text-[#383D37] disabled:opacity-50"
+                      placeholder="글자로 말하기"
+                      data-ui="K-text"
+                      className="min-h-11 min-w-0 rounded-full border border-line-input bg-surface px-4 text-[15px] text-kid-ink disabled:opacity-50"
                     />
-                    <button
+                    <Button
                       type="submit"
+                      variant="kid-soft"
+                      size="xs"
                       disabled={!draft.trim() || busy || screenState === "listening"}
-                      className="font-friendly min-h-12 rounded-2xl bg-[#DCE8D8] px-4 text-[15px] text-[#383D37] disabled:bg-[#E8E6DF] disabled:text-[#777B75]"
+                      className="border border-line-input px-4 text-[15px] disabled:opacity-50"
+                      data-ui="K-send"
                     >
                       보내기
-                    </button>
+                    </Button>
                   </form>
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="xs"
                     disabled={busy || screenState === "listening"}
-                    onClick={() => void sendMessage("끝", false)}
-                    className="font-friendly mt-2 min-h-11 w-full rounded-2xl text-[14px] text-[#5E655C] disabled:opacity-50"
+                    onClick={() => void sendMessage(END_WORD, false)}
+                    className="w-full text-[14px] text-kid-ink disabled:opacity-50"
+                    data-ui="K-end"
                   >
                     대화 마치기
-                  </button>
+                  </Button>
                 </>
               ) : (
-                <button
-                  type="button"
+                <Button
+                  variant="kid"
+                  size="md"
                   onClick={() => {
                     setConversationFinished(false);
                     setFinishNotice(null);
                   }}
-                  className="font-friendly min-h-12 w-full rounded-2xl bg-[#DCE8D8] px-4 text-[15px] text-[#383D37]"
+                  className="w-full px-4 text-[16px]"
+                  data-ui="K-more"
                 >
                   이야기 더 하기
-                </button>
+                </Button>
               )}
-              <div ref={bottomRef} />
             </div>
           ) : null}
-        </section>
-      </div>
+        </div>
+      </KokkiriStage>
     </main>
   );
 }

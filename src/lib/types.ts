@@ -49,6 +49,8 @@ export type Message = {
   keepFromParent?: KeepFromParentReason;
   /** 아이가 받아쓴 글자를 [맞아]로 확인했는지 */
   confirmed?: boolean;
+  /** 선택지 버튼을 눌러 보낸 말 (아이 자기 말이 아니라 3줄 일기에는 넣지 않는다) */
+  viaChoice?: boolean;
 };
 
 export type Share = {

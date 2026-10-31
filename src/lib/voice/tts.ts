@@ -10,6 +10,13 @@ export type TtsOptions = {
   pitch?: number;
   /** 클라우드 목소리. false면 브라우저 목소리만 */
   cloud?: false | CloudOptions;
+  // 립싱크용 알림: 소리를 받아 오는 시간이 있어서 speak()를 부른 순간이 아니라 실제로 소리가 나는 순간에 온다
+  /** 클라우드·고정 대사 한 덩어리가 나기 직전. seconds = 그 덩어리 길이 (덩어리마다 한 번) */
+  onChunkStart?: (seconds: number) => void;
+  /** 브라우저 목소리 첫 문장이 나기 시작 (길이를 모름) */
+  onBrowserStart?: () => void;
+  /** 브라우저 목소리 마지막 문장이 끝남 (멈췄을 때 포함) */
+  onBrowserEnd?: () => void;
 };
 
 export type CloudOptions = { voiceId?: string; previousText?: string };
@@ -83,6 +90,8 @@ export function splitSentences(text: string, maxLen = 60): string[] {
 // 클라우드 오디오는 Web Audio로 재생한다 (iPhone에서 첫 터치 때 한 번 풀어 두면 이후 자동 재생 가능)
 let audioCtx: AudioContext | null = null;
 let current: AudioBufferSourceNode | null = null;
+let analyser: AnalyserNode | null = null; // 지금 나는 소리 크기 (입 모양용, getSpeechLevel)
+let levelData: Uint8Array<ArrayBuffer> | null = null;
 const audioCache = new Map<string, AudioBuffer>(); // 같은 문장은 다시 받지 않는다 (인사말 등)
 
 function ctx(): AudioContext | null {
@@ -145,13 +154,15 @@ async function loadBuffer(text: string, cloud: CloudOptions): Promise<AudioBuffe
   const hit = audioCache.get(key);
   if (hit) return hit;
   try {
-    const res = fixed
-      ? await fetch(fixed)
-      : await fetch("/api/tts", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text, voiceId: cloud.voiceId, previousText: cloud.previousText }),
-        });
+    let res = fixed ? await fetch(fixed) : undefined;
+    // 고정 대사 문장을 바꾸고 mp3를 아직 다시 만들지 않았으면 클라우드 목소리로 읽는다
+    if (!res?.ok) {
+      res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, voiceId: cloud.voiceId, previousText: cloud.previousText }),
+      });
+    }
     if (!res.ok) return null;
     const buf = await ac.decodeAudioData(await res.arrayBuffer());
     audioCache.set(key, buf);
@@ -161,28 +172,48 @@ async function loadBuffer(text: string, cloud: CloudOptions): Promise<AudioBuffe
   }
 }
 
-async function playBuffer(buf: AudioBuffer): Promise<void> {
+function output(ac: AudioContext): AudioNode {
+  if (!analyser) {
+    analyser = ac.createAnalyser();
+    analyser.fftSize = 512;
+    analyser.connect(ac.destination);
+    levelData = new Uint8Array(analyser.fftSize);
+  }
+  return analyser;
+}
+
+/** 지금 코끼리 목소리 크기 0~1 (클라우드·고정 대사만, 브라우저 목소리는 0). 입 모양을 바꿀 때 requestAnimationFrame에서 읽는다 */
+export function getSpeechLevel(): number {
+  if (!analyser || !levelData || !current) return 0;
+  analyser.getByteTimeDomainData(levelData);
+  let sum = 0;
+  for (const v of levelData) sum += ((v - 128) / 128) ** 2;
+  return Math.min(1, Math.sqrt(sum / levelData.length) * 4);
+}
+
+async function playBuffer(buf: AudioBuffer, onStart?: (seconds: number) => void): Promise<void> {
   const ac = ctx()!;
   await ac.resume();
   const src = ac.createBufferSource();
   src.buffer = buf;
-  src.connect(ac.destination);
+  src.connect(output(ac));
   current = src;
   await new Promise<void>((resolve) => {
     src.onended = () => resolve();
+    onStart?.(buf.duration);
     src.start();
   });
   if (current === src) current = null;
 }
 
 /** 클라우드 목소리로 덩어리마다 읽는다 (다음 덩어리는 읽는 동안 미리 받아 둠). 읽은 덩어리 수를 돌려준다 */
-async function speakCloud(chunks: string[], cloud: CloudOptions, gen: number): Promise<number> {
+async function speakCloud(chunks: string[], cloud: CloudOptions, gen: number, onStart?: (seconds: number) => void): Promise<number> {
   let next = loadBuffer(chunks[0], cloud);
   for (let i = 0; i < chunks.length; i++) {
     const buf = await next;
     if (!buf || gen !== generation) return i;
     if (i + 1 < chunks.length) next = loadBuffer(chunks[i + 1], { ...cloud, previousText: chunks[i] });
-    await playBuffer(buf);
+    await playBuffer(buf, onStart);
     if (gen !== generation) return i + 1;
   }
   return chunks.length;
@@ -192,18 +223,27 @@ async function speakBrowser(sentences: string[], opts: TtsOptions, gen: number):
   if (!isTtsSupported()) return;
   const voices = await getKoreanVoices();
   const voice = voices.find((v) => v.voiceURI === opts.voiceURI) ?? pickBestVoice(voices);
-  for (const sentence of sentences) {
-    if (gen !== generation) return;
-    await new Promise<void>((resolve) => {
-      const u = new SpeechSynthesisUtterance(sentence);
-      u.lang = "ko-KR";
-      if (voice) u.voice = voice;
-      u.rate = opts.rate ?? DEFAULT_TTS.rate;
-      u.pitch = opts.pitch ?? DEFAULT_TTS.pitch;
-      u.onend = () => resolve();
-      u.onerror = () => resolve();
-      speechSynthesis.speak(u);
-    });
+  let started = false;
+  try {
+    for (const sentence of sentences) {
+      if (gen !== generation) return;
+      await new Promise<void>((resolve) => {
+        const u = new SpeechSynthesisUtterance(sentence);
+        u.lang = "ko-KR";
+        if (voice) u.voice = voice;
+        u.rate = opts.rate ?? DEFAULT_TTS.rate;
+        u.pitch = opts.pitch ?? DEFAULT_TTS.pitch;
+        u.onstart = () => {
+          if (!started) opts.onBrowserStart?.();
+          started = true;
+        };
+        u.onend = () => resolve();
+        u.onerror = () => resolve();
+        speechSynthesis.speak(u);
+      });
+    }
+  } finally {
+    if (started) opts.onBrowserEnd?.();
   }
 }
 
@@ -214,14 +254,14 @@ export async function speak(text: string, opts: TtsOptions = {}): Promise<void> 
   const clean = normalizeForSpeech(text);
   if (!clean) return;
   const chunks = packChunks(clean);
-  const done = opts.cloud === false ? 0 : await speakCloud(chunks, opts.cloud ?? {}, gen);
+  const done = opts.cloud === false ? 0 : await speakCloud(chunks, opts.cloud ?? {}, gen, opts.onChunkStart);
   if (done >= chunks.length || gen !== generation) return;
   await speakBrowser(chunks.slice(done).flatMap((c) => splitSentences(c)), opts, gen);
 }
 
 /** LLM 답을 기다리는 동안 바로 트는 짧은 맞장구 (미리 만든 파일, 크레딧 0) */
-export async function speakFiller(): Promise<void> {
+export async function speakFiller(opts: TtsOptions = {}): Promise<void> {
   const file = FILLER_FILES[Math.floor(Math.random() * FILLER_FILES.length)];
   const line = FIXED_LINES.find((l) => l.file === file);
-  if (line) await speak(line.text);
+  if (line) await speak(line.text, opts);
 }

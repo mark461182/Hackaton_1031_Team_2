@@ -1,3 +1,4 @@
+import { callName } from "../../lib/korean.ts";
 import type {
   Alert,
   Family,
@@ -45,20 +46,20 @@ export function getFinishConversationNotice(
   if (result.status === "awarded") {
     return {
       tone: "success",
-      text: `오늘 대화 코인 ${result.awardedCoins}개를 받았어요.`,
+      text: `오늘 대화 코인 ${result.awardedCoins}개를 받았어!`,
       coins: result.coins,
     };
   }
   if (result.status === "too_short") {
     return {
       tone: "neutral",
-      text: "코인을 받으려면 이야기를 조금 더 나눠 주세요.",
+      text: "코인을 받으려면 이야기를 조금 더 해 줘.",
       coins: result.coins,
     };
   }
   return {
     tone: "neutral",
-    text: "오늘 대화 코인은 이미 받았어요.",
+    text: "오늘 대화 코인은 벌써 받았어.",
     coins: result.coins,
   };
 }
@@ -66,6 +67,7 @@ export function getFinishConversationNotice(
 export function getKidStagePresentation(
   state: KidScreenState,
   started: boolean,
+  kidName?: string,
 ): { asset: EllyAsset; status: string } {
   if (state === "listening") return { asset: "listen", status: "응, 듣고 있어" };
   if (state === "thinking" || state === "loading") {
@@ -74,7 +76,7 @@ export function getKidStagePresentation(
   if (state === "speaking") return { asset: "excited", status: "내 이야기도 들어 봐" };
   return started
     ? { asset: "greet", status: "더 들려줄래?" }
-    : { asset: "greet", status: "안녕, 준우야!" };
+    : { asset: "greet", status: kidName?.trim() ? `안녕, ${callName(kidName)}!` : "안녕! 이름이 뭐야?" };
 }
 
 export function getKidVoiceControlPresentation(
@@ -82,16 +84,16 @@ export function getKidVoiceControlPresentation(
   sttSupported: boolean,
 ): { label: string; disabled: boolean } {
   if (state === "listening") {
-    return { label: "듣고 있어요 · 손을 떼면 바로 보내요", disabled: false };
+    return { label: "듣고 있어 · 손을 떼면 바로 보낼게", disabled: false };
   }
   if (state === "thinking" || state === "loading") {
-    return { label: "답을 생각하고 있어요", disabled: true };
+    return { label: "답을 생각하고 있어", disabled: true };
   }
   if (state === "speaking") {
-    return { label: "Elly가 말하고 있어요", disabled: true };
+    return { label: "Elly가 말하고 있어", disabled: true };
   }
   if (!sttSupported) {
-    return { label: "마이크 미지원 · 글자로 말해 주세요", disabled: true };
+    return { label: "마이크가 안 돼 · 글자로 말해 줘", disabled: true };
   }
   return { label: "꾹 누르고 말하기", disabled: false };
 }

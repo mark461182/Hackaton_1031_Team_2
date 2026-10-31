@@ -36,14 +36,18 @@ const entries: Entry[] = [
   },
 ];
 
-test("11월 달력은 일요일부터 42칸을 만들고 앞뒤 날짜를 밀리지 않게 놓는다", () => {
+test("11월 달력은 일요일부터 필요한 주만큼만 만들고 다음 달만 있는 줄은 뺀다", () => {
   const days = buildCalendarDays("2026-11", entries);
 
-  assert.equal(days.length, 42);
+  assert.equal(days.length, 35);
   assert.deepEqual(
-    [days[0].date, days[0].isCurrentMonth, days[41].date, days[41].isCurrentMonth],
-    ["2026-11-01", true, "2026-12-12", false],
+    [days[0].date, days[0].isCurrentMonth, days[34].date, days[34].isCurrentMonth],
+    ["2026-11-01", true, "2026-12-05", false],
   );
+});
+
+test("1일이 토요일이고 31일까지 있는 달은 6주를 그린다", () => {
+  assert.equal(buildCalendarDays("2026-08", entries).length, 42);
 });
 
 test("같은 날 대화와 사진이 있으면 달력 칸에 두 표시를 모두 남긴다", () => {

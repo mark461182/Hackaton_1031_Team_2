@@ -14,7 +14,11 @@ type ShareEntry = Extract<ParentFeedItem, { kind: "share" }> & {
   timeLabel: string;
 };
 
-export type ParentFeedEntry = ReplyEntry | AlertEntry | ShareEntry;
+type QuietEntry = Extract<ParentFeedItem, { kind: "quiet" }> & {
+  timeLabel: string;
+};
+
+export type ParentFeedEntry = ReplyEntry | AlertEntry | ShareEntry | QuietEntry;
 
 export type ParentFeedData = {
   family: Family;
@@ -29,6 +33,7 @@ const KIND_PRIORITY: Record<ParentFeedItem["kind"], number> = {
   alert: 0,
   reply: 1,
   share: 2,
+  quiet: 3,
 };
 
 const feedTimeFormatter = new Intl.DateTimeFormat("ko-KR", {

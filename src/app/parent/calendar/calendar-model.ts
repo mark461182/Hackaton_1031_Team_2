@@ -36,8 +36,11 @@ export function buildCalendarDays(month: string, entries: Entry[]): CalendarDay[
   const { year, monthIndex } = parseMonth(month);
   const firstDay = new Date(year, monthIndex, 1, 12);
   const gridStart = new Date(year, monthIndex, 1 - firstDay.getDay(), 12);
+  const daysInMonth = new Date(year, monthIndex + 1, 0, 12).getDate();
+  // 다음 달만 있는 줄은 그리지 않는다 (11/1 도하: 흐린 12월 줄 빼기)
+  const weeks = Math.ceil((firstDay.getDay() + daysInMonth) / 7);
 
-  return Array.from({ length: 42 }, (_, index) => {
+  return Array.from({ length: weeks * 7 }, (_, index) => {
     const dateValue = new Date(gridStart);
     dateValue.setDate(gridStart.getDate() + index);
     const date = toIsoDate(dateValue);

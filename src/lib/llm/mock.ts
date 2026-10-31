@@ -236,10 +236,10 @@ export function mockKidDone(req: KidDoneRequest): KidDoneResponse {
     .filter(Boolean);
   const diary = kidLines.length
     ? [
-        `오늘 코끼리랑 "${kidLines[0]}" 얘기를 했다.`,
-        kidLines[1] ? `"${kidLines[1]}" 얘기도 했다.` : "코끼리가 내 얘기를 잘 들어 줬다.",
-        "내일도 코끼리랑 얘기해야지.",
+        `오늘 Elly랑 "${kidLines[0]}" 얘기를 했다.`,
+        kidLines[1] ? `"${kidLines[1]}" 얘기도 했다.` : "Elly가 내 얘기를 잘 들어 줬다.",
+        "내일도 Elly랑 얘기해야지.",
       ]
-    : ["오늘 코끼리랑 인사를 했다.", "코끼리가 내 얘기를 기다려 줬다.", "내일은 더 많이 얘기해야지."];
+    : ["오늘 Elly랑 인사를 했다.", "Elly가 내 얘기를 기다려 줬다.", "내일은 더 많이 얘기해야지."];
   return { diary, mock: true };
 }

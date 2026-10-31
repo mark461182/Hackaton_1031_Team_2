@@ -6,6 +6,8 @@ import { useState } from "react";
 import { enterFreshDemo } from "@/app/home-model";
 import { getVisitorId, store } from "@/lib/store";
 
+import { Button } from "./ui/Button";
+
 type FreshDemoButtonProps = {
   label: string;
 };
@@ -27,16 +29,18 @@ export function FreshDemoButton({ label }: FreshDemoButtonProps) {
 
   return (
     <div className="grid justify-items-center">
-      <button
-        type="button"
+      <Button
+        variant="text"
+        size="xs"
         disabled={state === "pending"}
         onClick={() => void handleClick()}
-        className="font-friendly min-h-11 text-[17px] text-[#383D37] underline decoration-[#728F7A] decoration-1 underline-offset-4 disabled:cursor-wait disabled:opacity-60"
+        className="font-friendly text-[17px] decoration-1 disabled:cursor-wait disabled:opacity-60"
+        data-ui="H-sample"
       >
         {state === "pending" ? "예시 가족을 준비하는 중…" : label}
-      </button>
+      </Button>
       {state === "error" && (
-        <p role="alert" className="text-[13px] leading-5 text-[#873B32]">
+        <p role="alert" className="text-[13px] leading-5 text-danger-ink">
           준비하지 못했어요. 다시 눌러 주세요.
         </p>
       )}
