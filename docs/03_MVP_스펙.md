@@ -77,6 +77,31 @@
 | 말 → 글자 (STT) | 브라우저 Web Speech API `SpeechRecognition`, `lang: 'ko-KR'` | 클라우드 STT |
 | 글자 → 말 (TTS) | 브라우저 `speechSynthesis` (한국어 목소리) | **클라우드 TTS로 목소리 교체 — 우선순위 높음** (기계음이면 코끼리 느낌이 안 남). 후보: AWS Polly(해커톤 바우처), CLOVA Voice |
 
+**코드:** `src/lib/voice` (공용 모듈) · `/voice-lab` (실험 페이지)
+
+```ts
+import { createPushToTalk, pickTranscript, speak, unlockTts } from "@/lib/voice";
+
+// 첫 버튼 onClick에서 한 번 (iPhone 무음 해제)
+unlockTts();
+
+// 꾹 누르고 말하기
+const ptt = createPushToTalk((interim) => setLive(interim));
+onPointerDown: ptt.start();
+onPointerUp:   const alts = await ptt.stop();
+               const text = pickTranscript(alts, 화면의_선택지들);   // 맥락 순위 + 선택지 맞추기
+
+// 코끼리 답 읽기 (이모지·ㅋㅋ·괄호 정리 → 문장 단위로 읽음)
+await speak(reply, { voiceURI, rate, pitch });   // 값은 /voice-lab에서 고른 것
+```
+
+**정확도 올리는 방법 (구현됨)**
+| 대상 | 방법 |
+| --- | --- |
+| STT | 후보 5개 받기 → 초저 대화 단어(학교·짝꿍·급식…)로 다시 순위 → 화면 선택지와 비슷하면 그 선택지로 맞춤 → `/voice-lab`에서 글자 오류율(CER) 측정 (엔진 그대로 vs 보정 후) |
+| TTS | 기기의 한국어 목소리 중 자연스러운 것 자동 선택, 이모지·ㅋㅋ·ㅠㅠ·괄호·말줄임표 정리, 문장 단위로 나눠 읽기 (크롬은 긴 문장을 읽다 끊김), 속도·높낮이 조절 |
+| 다음 (LLM 정해지면) | 후보 여러 개 + 직전 코끼리 질문을 LLM에 같이 넘겨 문맥으로 고르게 하기 |
+
 **동작**
 - **꾹 누르고 말하기** 버튼 (무전기 방식). 계속 듣다가 말 끝을 감지하는 방식은 쓰지 않는다
 - 받아쓴 글자를 화면에 보여주고 [맞아] [다시 말하기] → 아이 발음 오인식 대비
