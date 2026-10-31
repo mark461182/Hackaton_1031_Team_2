@@ -1,4 +1,4 @@
-// LLM 호출 (서버 전용). 래블업 토큰팩토리 = OpenAI 호환 API로 가정: POST {LLM_BASE_URL}/chat/completions
+// LLM 호출 (서버 전용). 래블업 토큰팩토리 = OpenAI 호환 API: POST https://api.console.lablup.ai/v1/chat/completions
 // 환경변수: LLM_BASE_URL, LLM_API_KEY, LLM_MODEL. 하나라도 없으면 null → 호출한 쪽이 가짜 응답으로 대체한다
 
 export function isLlmConfigured(): boolean {
@@ -35,7 +35,8 @@ export async function chatComplete(system: string, user: string, opts: ChatOptio
     }
     const data = await res.json();
     const text = data?.choices?.[0]?.message?.content;
-    return typeof text === "string" ? text : null;
+    // 생각 과정을 답에 붙이는 모델(DeepSeek 등)이 있어 지운다
+    return typeof text === "string" ? text.replace(/<think>[\s\S]*?<\/think>/g, "").trim() : null;
   } catch (e) {
     console.error("LLM 호출 실패", e);
     return null;
