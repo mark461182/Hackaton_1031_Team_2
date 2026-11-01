@@ -22,6 +22,7 @@ type Recognition = {
   onresult: ((e: { resultIndex: number; results: RecognitionResultList }) => void) | null;
   onerror: ((e: { error: string }) => void) | null;
   onend: (() => void) | null;
+  onaudiostart?: (() => void) | null;
 };
 
 type RecognitionCtor = new () => Recognition;
@@ -55,6 +56,8 @@ export function createPushToTalk(
   onInterim?: (text: string) => void,
   maxAlternatives = 5,
   continuous = !isMobile(),
+  /** 마이크가 실제로 열린 때 (아이폰은 누르고 0.5~1초 뒤라 그 전에 한 말은 버려진다 → 이때부터 말하라고 알린다) */
+  onReady?: () => void,
 ): PushToTalk {
   const Ctor = getCtor();
   if (!Ctor) throw new Error("이 브라우저는 음성 인식을 지원하지 않아요");
@@ -63,6 +66,7 @@ export function createPushToTalk(
   // 문장 조각마다 후보가 따로 오므로, 조각별 후보를 모았다가 이어 붙인다
   let segments: SttAlternative[][] = [];
   let finished: Promise<void> = Promise.resolve();
+  let readyTimer: ReturnType<typeof setTimeout> | undefined;
 
   return {
     start() {
@@ -72,6 +76,15 @@ export function createPushToTalk(
       rec.interimResults = true;
       rec.maxAlternatives = maxAlternatives;
       rec.continuous = continuous; // PC: 버튼을 누르고 있는 동안 계속 듣는다
+      // 마이크가 열린 신호가 안 오는 브라우저도 있어서 1.5초 뒤에는 열린 것으로 본다
+      let ready = false;
+      const markReady = () => {
+        if (ready) return;
+        ready = true;
+        onReady?.();
+      };
+      rec.onaudiostart = markReady;
+      readyTimer = setTimeout(markReady, 1500);
       finished = new Promise((resolve) => {
         rec!.onend = () => resolve();
         rec!.onerror = () => resolve();
@@ -94,6 +107,7 @@ export function createPushToTalk(
       rec.start();
     },
     async stop(tailMs = 0) {
+      clearTimeout(readyTimer);
       if (tailMs > 0) await Promise.race([finished, new Promise((resolve) => setTimeout(resolve, tailMs))]);
       rec?.stop();
       await finished;

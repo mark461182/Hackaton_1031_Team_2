@@ -112,6 +112,14 @@ export function unlockTts(): void {
   speechSynthesis.speak(u);
 }
 
+/**
+ * 소리 출력만 다시 깨운다 (무음 음성은 재생하지 않아서 녹음과 안 겹친다)
+ * 아이폰은 마이크를 쓴 뒤 오디오가 멈춰 있어서, 손가락이 닿거나 떨어지는 순간에 깨워 둬야 답이 소리로 나온다
+ */
+export function resumeAudio(): void {
+  void ctx()?.resume();
+}
+
 export function stopSpeaking(): void {
   generation++;
   try {

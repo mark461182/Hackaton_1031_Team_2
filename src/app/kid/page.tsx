@@ -39,6 +39,7 @@ import {
   getSpeechLevel,
   inAppBrowser,
   nonChromeBrowser,
+  resumeAudio,
   isSttSupported,
   pickTranscript,
   speak,
@@ -87,7 +88,8 @@ function KidChatScreen() {
   const actionGate = useRef(createActionGate());
   const speechRun = useRef(0);
   const questionDone = useRef(false);
-  const ttsUnlocked = useRef(false); // 이번 대화에서 부모 질문을 이미 끝냈는지
+  const ttsUnlocked = useRef(false);
+  const [micReady, setMicReady] = useState(false); // 누른 뒤 마이크가 실제로 열렸는지 (열리기 전에 한 말은 잘린다) // 이번 대화에서 부모 질문을 이미 끝냈는지
   const kk = useRef<KokkiriPlayer | null>(null);
   const lip = useRef<KokkiriLipSync | null>(null); // 입 그리기 (도하 09_lipsync). 안 되는 브라우저에선 스스로 꺼져 원래 말하기 영상
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -372,6 +374,7 @@ function KidChatScreen() {
 
   function startTalk(event: ReactPointerEvent<HTMLButtonElement>) {
     if (busy || !sttSupported || pushToTalk.current) return;
+    resumeAudio();
     // 소리 풀기(무음 음성 재생)는 처음 한 번만: 누를 때마다 하면 녹음 시작과 겹쳐서 앞말이 잘리거나 인식이 끊긴다
     if (!ttsUnlocked.current) {
       ttsUnlocked.current = true;
@@ -383,7 +386,8 @@ function KidChatScreen() {
     try {
       event.currentTarget.setPointerCapture(event.pointerId);
       activePointerId.current = event.pointerId;
-      const ptt = createPushToTalk();
+      setMicReady(false);
+      const ptt = createPushToTalk(undefined, undefined, undefined, () => setMicReady(true));
       pushToTalk.current = ptt;
       ptt.start();
       setScreenState("listening");
@@ -397,6 +401,7 @@ function KidChatScreen() {
     if (event && activePointerId.current !== null && event.pointerId !== activePointerId.current) return;
     const ptt = pushToTalk.current;
     if (!ptt) return;
+    resumeAudio(); // 손을 뗀 순간(사용자 동작 안)에 깨워야 아이폰에서 뒤이은 답이 들린다
     pushToTalk.current = null;
     activePointerId.current = null;
     let sent = false;
@@ -432,6 +437,7 @@ function KidChatScreen() {
   const stage = getKidStagePresentation(screenState, started, family?.kidName);
   const voiceView = getKidVoiceViewPresentation(screenState, sttSupported, "");
   const voiceControl = voiceView.control;
+  const waitingMic = screenState === "listening" && !micReady;
   const recentMessages = messages.filter((message) => message.text.trim() !== END_WORD).slice(-2);
   // 외부 브라우저는 저장 공간이 따로라서 열쇠를 다시 붙여 넘긴다 (안 붙이면 링크 안내 화면으로 초기화된다)
   const wantsOtherBrowser = Boolean(inApp || otherBrowser);
@@ -527,7 +533,15 @@ function KidChatScreen() {
           className="mt-auto rounded-t-[28px] bg-surface/85 px-4 pt-3 pb-[max(14px,env(safe-area-inset-bottom))] backdrop-blur-md"
         >
           <p className="font-friendly mb-2 text-center text-[16px]" role="status">
-            {screenState === "loading" ? "대화를 불러오고 있어" : conversationFinished ? "오늘 이야기 고마워!" : stage.status}
+            {screenState === "loading"
+              ? "대화를 불러오고 있어"
+              : conversationFinished
+                ? "오늘 이야기 고마워!"
+                : waitingMic
+                  ? "잠깐만, 귀 기울이는 중이야"
+                  : screenState === "listening"
+                    ? "응, 이제 말해 줘"
+                    : stage.status}
           </p>
 
           {error ? (
@@ -629,7 +643,7 @@ function KidChatScreen() {
               {!conversationFinished ? (
                 <>
                   <Button
-                    variant={screenState === "listening" ? "kid-listening" : "kid"}
+                    variant={screenState === "listening" && micReady ? "kid-listening" : "kid"}
                     size="xl"
                     disabled={voiceControl.disabled}
                     onPointerDown={startTalk}
@@ -640,7 +654,7 @@ function KidChatScreen() {
                     className="w-full touch-none select-none px-5 text-[17px] transition-transform [-webkit-touch-callout:none] active:scale-[0.99] disabled:opacity-60"
                     data-ui="K-talk"
                   >
-                    {voiceControl.label}
+                    {waitingMic ? "잠깐만… 귀 여는 중" : voiceControl.label}
                   </Button>
                   <form onSubmit={submit} className="grid grid-cols-[1fr_auto] gap-2">
                     <label className="sr-only" htmlFor="kid-message">

@@ -63,6 +63,8 @@ export default function VoiceLab() {
   const [interim, setInterim] = useState("");
   const [alts, setAlts] = useState<SttAlternative[]>([]);
   const [listening, setListening] = useState(false);
+  const [micReady, setMicReady] = useState(false);
+  const [heardNothing, setHeardNothing] = useState(false); // 인식 결과가 비면 알려 준다 (아무 표시가 없으면 고장인지 모른다)
   const [trials, setTrials] = useState<Trial[]>([]);
   const ptt = useRef<PushToTalk | null>(null);
 
@@ -119,7 +121,9 @@ export default function VoiceLab() {
     stopSpeaking();
     setAlts([]);
     setInterim("");
-    ptt.current = createPushToTalk(setInterim);
+    setHeardNothing(false);
+    setMicReady(false);
+    ptt.current = createPushToTalk(setInterim, undefined, undefined, () => setMicReady(true));
     ptt.current.start();
     setListening(true);
   }
@@ -130,6 +134,7 @@ export default function VoiceLab() {
     const result = await ptt.current.stop();
     ptt.current = null;
     setAlts(result);
+    setHeardNothing(!result.length);
     if (!result.length) return;
     if (!target) return;
     const raw = result[0].transcript;
@@ -231,22 +236,34 @@ export default function VoiceLab() {
             onClick={() => (listening ? endTalk() : startTalk())}
             className={`w-full rounded-2xl py-6 text-lg font-semibold ${listening ? "bg-pink-400 text-white" : "bg-pink-200"} disabled:opacity-40`}
           >
-            {listening ? "듣고 있어요… [정지]" : "[시작]"}
+            {listening ? (micReady ? "말하세요… [정지]" : "잠깐만… 마이크 여는 중") : "[시작]"}
           </button>
         ) : (
           <button
             disabled={!sttOk || !target}
-            onPointerDown={startTalk}
+            // 아이폰: 꾹 누르면 글자 선택·메뉴가 떠서 손을 떼도 끝나지 않던 것을 막는다 (아이 화면 버튼과 같게)
+            onPointerDown={(e) => {
+              e.preventDefault();
+              e.currentTarget.setPointerCapture(e.pointerId);
+              startTalk();
+            }}
             onPointerUp={endTalk}
-            onPointerLeave={() => listening && endTalk()}
-            className={`w-full select-none rounded-2xl py-6 text-lg font-semibold ${
+            onPointerCancel={() => listening && endTalk()}
+            onContextMenu={(e) => e.preventDefault()}
+            style={{ WebkitTouchCallout: "none" }}
+            className={`w-full touch-none select-none rounded-2xl py-6 text-lg font-semibold ${
               listening ? "bg-pink-400 text-white" : "bg-pink-200"
             } disabled:opacity-40`}
           >
-            {listening ? "듣고 있어요… 손을 떼면 끝" : "꾹 누르고 말하기"}
+            {listening ? (micReady ? "말하세요… 손을 떼면 끝" : "잠깐만… 마이크 여는 중") : "꾹 누르고 말하기"}
           </button>
         )}
         {interim && <p className="text-gray-700">말하는 중: {interim}</p>}
+        {heardNothing && (
+          <p className="text-sm text-amber-700">
+            받아쓴 글자가 없어요. 마이크 권한과 받아쓰기(설정 → 일반 → 키보드) 설정을 확인하거나 &ldquo;길게 듣기&rdquo;로 해 보세요.
+          </p>
+        )}
         {alts.length > 0 && (
           <div className="text-sm">
             <p className="font-medium">엔진이 준 후보</p>
