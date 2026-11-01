@@ -44,6 +44,8 @@ export type PushToTalk = {
    * tailMs: 손을 뗀 뒤에도 그만큼 더 듣는다 (아이들이 말끝보다 먼저 손을 떼서 끝말이 잘린다). 그 사이 인식이 먼저 끝나면 바로 돌려준다
    */
   stop(tailMs?: number): Promise<SttAlternative[]>;
+  /** 인식이 스스로 끝났을 때 (휴대폰은 말을 멈추면 끝난다). 탭으로 시작했을 때 자동으로 보내는 데 쓴다 */
+  readonly ended: Promise<void>;
 };
 
 /**
@@ -65,6 +67,9 @@ export function createPushToTalk(
   let finished: Promise<void> = Promise.resolve();
 
   return {
+    get ended() {
+      return finished;
+    },
     start() {
       segments = [];
       rec = new Ctor();

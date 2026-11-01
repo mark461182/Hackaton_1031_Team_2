@@ -50,6 +50,10 @@ import {
 
 /** 손을 뗀 뒤 더 듣는 시간 (말끝이 잘리지 않게, Elly는 그동안 생각하는 모습) */
 const STT_TAIL_MS = 1500;
+/** 이보다 짧게 누르면 탭으로 보고 손을 떼도 계속 듣는다 */
+const TAP_MS = 400;
+/** 탭으로 듣기를 시작했을 때 최대 듣는 시간 (PC는 말을 멈춰도 스스로 안 끝난다) */
+const TAP_MAX_MS = 15000;
 const GREETING = FIXED_LINES.find((line) => line.file === "greet");
 const SHARE_YES = FIXED_LINES.find((line) => line.file === "share-yes")?.text ?? "좋아, 고마워!";
 const SHARE_NO = FIXED_LINES.find((line) => line.file === "share-no")?.text ?? "알겠어. 말하고 싶을 때 말해 줘.";
@@ -87,7 +91,11 @@ function KidChatScreen() {
   const actionGate = useRef(createActionGate());
   const speechRun = useRef(0);
   const questionDone = useRef(false);
-  const ttsUnlocked = useRef(false); // 이번 대화에서 부모 질문을 이미 끝냈는지
+  const ttsUnlocked = useRef(false);
+  // 탭으로 말하기: 짧게 누르면 손을 떼도 계속 듣는다 (맥북 트랙패드처럼 꾹 누르기가 어려운 기기)
+  const tapMode = useRef(false);
+  const [tapListening, setTapListening] = useState(false);
+  const pressStartedAt = useRef(0); // 이번 대화에서 부모 질문을 이미 끝냈는지
   const kk = useRef<KokkiriPlayer | null>(null);
   const lip = useRef<KokkiriLipSync | null>(null); // 입 그리기 (도하 09_lipsync). 안 되는 브라우저에선 스스로 꺼져 원래 말하기 영상
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -371,6 +379,11 @@ function KidChatScreen() {
   }
 
   function startTalk(event: ReactPointerEvent<HTMLButtonElement>) {
+    // 탭으로 듣는 중에 한 번 더 누르면 보낸다
+    if (tapMode.current && pushToTalk.current) {
+      void endTalk();
+      return;
+    }
     if (busy || !sttSupported || pushToTalk.current) return;
     // 소리 풀기(무음 음성 재생)는 처음 한 번만: 누를 때마다 하면 녹음 시작과 겹쳐서 앞말이 잘리거나 인식이 끊긴다
     if (!ttsUnlocked.current) {
@@ -385,6 +398,9 @@ function KidChatScreen() {
       activePointerId.current = event.pointerId;
       const ptt = createPushToTalk();
       pushToTalk.current = ptt;
+      tapMode.current = false;
+      setTapListening(false);
+      pressStartedAt.current = Date.now();
       ptt.start();
       setScreenState("listening");
     } catch {
@@ -393,10 +409,36 @@ function KidChatScreen() {
     }
   }
 
+  /**
+   * 손을 뗄 때. 짧게 탭했으면(맥북 트랙패드·마우스 클릭 등) 계속 듣고, 한 번 더 누르거나 말을 멈추면 보낸다
+   * 꾹 누르고 있다가 떼면 지금처럼 바로 보낸다
+   */
+  function releaseTalk(event: ReactPointerEvent<HTMLButtonElement>) {
+    if (tapMode.current) return;
+    const ptt = pushToTalk.current;
+    if (ptt && Date.now() - pressStartedAt.current < TAP_MS) {
+      tapMode.current = true;
+      setTapListening(true);
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+      activePointerId.current = null;
+      // 휴대폰처럼 말을 멈추면 인식이 끝나는 곳에서는 그때 보낸다. PC는 계속 들으니 너무 길면 끊는다
+      void ptt.ended.then(() => {
+        if (pushToTalk.current === ptt) void endTalk();
+      });
+      setTimeout(() => {
+        if (pushToTalk.current === ptt) void endTalk();
+      }, TAP_MAX_MS);
+      return;
+    }
+    void endTalk(event);
+  }
+
   async function endTalk(event?: ReactPointerEvent<HTMLButtonElement>) {
     if (event && activePointerId.current !== null && event.pointerId !== activePointerId.current) return;
     const ptt = pushToTalk.current;
     if (!ptt) return;
+    tapMode.current = false;
+    setTapListening(false);
     pushToTalk.current = null;
     activePointerId.current = null;
     let sent = false;
@@ -633,14 +675,14 @@ function KidChatScreen() {
                     size="xl"
                     disabled={voiceControl.disabled}
                     onPointerDown={startTalk}
-                    onPointerUp={(event) => void endTalk(event)}
-                    onPointerCancel={(event) => void endTalk(event)}
-                    onLostPointerCapture={(event) => void endTalk(event)}
+                    onPointerUp={releaseTalk}
+                    onPointerCancel={releaseTalk}
+                    onLostPointerCapture={releaseTalk}
                     onContextMenu={(event) => event.preventDefault()}
                     className="w-full touch-none select-none px-5 text-[17px] transition-transform [-webkit-touch-callout:none] active:scale-[0.99] disabled:opacity-60"
                     data-ui="K-talk"
                   >
-                    {voiceControl.label}
+                    {screenState === "listening" && tapListening ? "듣고 있어 · 다 말하면 한 번 더 눌러" : voiceControl.label}
                   </Button>
                   <form onSubmit={submit} className="grid grid-cols-[1fr_auto] gap-2">
                     <label className="sr-only" htmlFor="kid-message">
