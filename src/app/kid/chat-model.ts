@@ -95,7 +95,7 @@ export function getKidVoiceControlPresentation(
   if (!sttSupported) {
     return { label: "마이크가 안 돼 · 글자로 말해 줘", disabled: true };
   }
-  return { label: "꾹 누르고 말하기", disabled: false };
+  return { label: "눌러서 말하기", disabled: false };
 }
 
 export function getKidVoiceSendIntent(transcript: string): KidVoiceSendIntent | undefined {
